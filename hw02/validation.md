@@ -99,3 +99,27 @@ No — in the Prompt 2 response, Claude reported `txn_date`'s string type as par
 | Max | $142,855.43 | $249,302.33 |
 
 The null-security rows average about 45% lower than the non-null rows on both mean and median, and their maximum tops out far lower too (~$143K vs ~$249K) — consistent with the box plot, where `Buy`/`Sell`/`Dividend` show a long right tail of very large transactions that `Deposit`/`Withdrawal`/`Advisory Fee` don't have. The skew is driven mostly by `Advisory Fee`, whose own median is just $859.12 — it pulls the whole null-group average down even though `Deposit` and `Withdrawal` individually sit close to the overall dataset mean (~$50K each) on their own. So it isn't that "null rows" behave oddly as a category — it's that one specific cash transaction type (fees) is small and numerous, and it happens to share the same null pattern as two normal-sized ones (deposits/withdrawals).
+
+## 2C - Business Check & Cross Validation
+
+**1:** We would anticipate Advisory Fee, Deposit, and Withdraw to be the three transaction types without a security ID. This is because these are all cash level accounts/cash level events and not a security transaction. The count does add up to 101,597.
+
+**2:** The wealth management company having significantly more buy transactions then sell transactions could suggest they typicall take long positions. This could suggest the firms typically invests more in growth and long position securities. Encouraging clients to hold positions for long periods of time.
+
+**3:** One likely scenario would be the python code simply crashing. Python would treat the cells similar to letters and letters cannot be subtracted/added.
+
+**4:** 108 clients per advisor seems like a particularly high number for a personalized wealth management firm. However, for a more general purpose wealth management firm, this is a fairly reasonable number. If the wealth management firm has more standardized, general purpose, products and/or services, serving 108 clients per advisor is a reasonable number.
+
+**5:** One possible scenario for negative shares in a buy scenario could be a shorted position. It is possible the wealth management firm is taking short positions here, causing negative share numbers. Another plausible scenario could be reversed transactions. It is possible that these were pending transactions, set to a strike price, and while the advisor was waiting for a secruity to reach the strike price they decided to cancel the transaction. Next, I would do further research into if the wealth management firm even engages in short position transactions. Talking directly with the advisors would be another simple way to verify why there are negative share amounts.
+
+### Cross-Validation
+
+**6:** Prompt A: "Buy transaction count: 83556" Prompt B: "Total rows: 298772
+Non-Buy rows: 215216
+Buy count (by subtraction): 83556"
+
+**7:** Both of the results agree.
+
+**8:** Using subtraction helps to also verify every other class as well. Filtering proves that at least Buy is correct, while subtracting proves everything besides buy is correct.
+
+
