@@ -26,6 +26,8 @@ secrets.*
 
 # ── Data (often large / sensitive — track intentionally) ─
 *.csv
+# Exception: homework deliverables (hw01/, hw02/, ... hw08/) are CSVs that must be tracked
+!hw*/*.csv
 *.xlsx
 *.parquet
 *.h5
