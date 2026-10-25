@@ -1,0 +1,47 @@
+finding_id,check_group,table,column,check,severity,rows_affected,pct_affected,example,detail
+F001,1_column,dim_client,state,value not in allowed list,ERROR,78,3.089,"{'Pennsylvania': 25, 'Florida': 15, 'New York': 14, 'New Jersey': 13, 'California': 5}",
+F002,1_column,fact_fees,bps_charged,"outside valid range [0, 100]",ERROR,1,0.001,100.38,
+F003,1_column,fact_portfolio_snapshot,return_ytd,fails to parse as decimal,ERROR,300,0.232,9.28% | 19.52% | 13.35%,Format classes: decimal=129044; percent=300; scientific=135; int_as_float=68
+F004,1_column,fact_transactions,security_id,fails to parse as int,ERROR,197175,65.995,45.0 | 174.0 | 478.0,Format classes: int_as_float=197175
+F005,2_single_table,dim_client,last_name,near-duplicate rows (all columns match except last_name),ERROR,50,1.98,"[['2240', 'Collins'], ['2504', 'Collin']]",25 pairs; same entity entered twice?
+F006,2_single_table,fact_transactions,shares,shares <= 0 on security txn,ERROR,836,0.28,271,Sign rule: share counts are positive; txn_type carries direction
+F007,2_single_table,fact_transactions,amount,amount != shares x price (tol 0.01),ERROR,836,0.28,271,
+F008,3_referential,fact_transactions,security_id,FK format breaks join: fact_transactions.security_id -> dim_security.security_id,ERROR,197175,65.995,45.0,Key matches only after removing trailing '.0' (int stored as float)
+F009,3_referential,fact_transactions,client_id,orphan FK: fact_transactions.client_id -> dim_client.client_id,ERROR,200,0.067,3191,200 distinct keys not in dim_client
+F010,1_column,dim_advisor,certifications,null-like text token,WARN,6,24.0,"'CFA'=6; 'None'=6; 'CFP, CFA'=6",Text such as 'None' becomes NaN under default parsing
+F011,1_column,fact_fees,aum_basis,value spike (possible placeholder),WARN,386,0.316,1000.0,'1000.0' appears 386x; next most common 2x
+F012,1_column,fact_portfolio_snapshot,return_ytd,"implausible value outside [-0.9, 1.0]",WARN,1473,1.137,-0.97695,
+F013,1_column,fact_portfolio_snapshot,active_alpha_ytd,mixed formats,WARN,756,0.584,9.999999 (48.9%); -9.999999 (40.3%); 9.99999 (4.9%),3 distinct value-shape families in a typed column
+F014,1_column,fact_portfolio_snapshot,return_ytd,mixed formats,WARN,435,0.336,9.999999 (57.4%); -9.999999 (31.9%); 9.99999 (5.8%),4 distinct value-shape families in a typed column
+F015,1_column,fact_portfolio_snapshot,aum,value spike (possible placeholder),WARN,420,0.324,1000.0,'1000.0' appears 420x; next most common 2x
+F016,3_referential,dim_benchmark,benchmark_id,dimension members with no fact rows,WARN,1,12.5,['6'],
+F017,3_referential,dim_client,client_id,dimension members with no fact rows,WARN,25,0.99,"['2501', '2502', '2503', '2504', '2505']",
+F018,4_cross_table,fact_fees,aum_basis,placeholder 1000.0 in aum_basis mirrors snapshot aum,WARN,386,0.316,,Same client-month holds 1000.0 in both tables; cannot be verified from either
+F019,4_cross_table,fact_transactions,txn_date,Buy/Sell on a non-trading day (dim_date),WARN,40649,13.605,,
+F020,4_cross_table,fact_transactions,txn_date,inactive client transacts after last snapshot,WARN,2410,0.807,,
+F021,1_column,dim_client,risk_profile,blank values,INFO,76,3.01,,Blank cells; decide in decision log whether structural or a defect
+F022,1_column,dim_security,expense_ratio_bps,blank values,INFO,281,56.2,,Blank cells; decide in decision log whether structural or a defect
+F023,1_column,dim_security,sector,blank values,INFO,219,43.8,,Blank cells; decide in decision log whether structural or a defect
+F024,1_column,fact_transactions,security_id,blank values,INFO,101597,34.005,,Blank cells; decide in decision log whether structural or a defect
+F025,1_column,fact_transactions,shares,blank values,INFO,101597,34.005,,Blank cells; decide in decision log whether structural or a defect
+F026,1_column,fact_transactions,price,blank values,INFO,101597,34.005,,Blank cells; decide in decision log whether structural or a defect
+F027,2_single_table,dim_security,sector/expense_ratio_bps,"blank by design (sector on ETFs, expense ratio on non-ETFs)",INFO,500,100.0,,Structural: each blank aligns exactly with is_etf
+F028,2_single_table,dim_security,benchmark_id,asset_class maps to more than one benchmark,INFO,1,25.0,{'Equity': 3},
+F029,2_single_table,fact_portfolio_snapshot,return_ytd,percent string reconciles to alpha after /100,INFO,300,0.232,41,Unit repair is verifiable against benchmark and alpha columns
+F030,2_single_table,fact_transactions,security_id/shares/price,blank by design on Deposit/Withdrawal/Advisory Fee,INFO,101597,34.005,,Structural: cash movements have no security; not a defect
+F031,2_single_table,fact_transactions,shares,|shares| x price = amount (sign-only error),INFO,836,0.28,271,Amount reconciles once shares sign is flipped: repair is verifiable
+F032,3_referential,dim_client,advisor_id,RI ok: dim_client.advisor_id -> dim_advisor.advisor_id,INFO,0,0.0,,100% match
+F033,3_referential,dim_security,benchmark_id,RI ok: dim_security.benchmark_id -> dim_benchmark.benchmark_id,INFO,0,0.0,,100% match
+F034,3_referential,fact_fees,client_id,RI ok: fact_fees.client_id -> dim_client.client_id,INFO,0,0.0,,100% match
+F035,3_referential,fact_fees,advisor_id,RI ok: fact_fees.advisor_id -> dim_advisor.advisor_id,INFO,0,0.0,,100% match
+F036,3_referential,fact_fees,fee_date,RI ok: fact_fees.fee_date -> dim_date.date,INFO,0,0.0,,100% match
+F037,3_referential,fact_portfolio_snapshot,client_id,RI ok: fact_portfolio_snapshot.client_id -> dim_client.client_id,INFO,0,0.0,,100% match
+F038,3_referential,fact_portfolio_snapshot,advisor_id,RI ok: fact_portfolio_snapshot.advisor_id -> dim_advisor.advisor_id,INFO,0,0.0,,100% match
+F039,3_referential,fact_portfolio_snapshot,benchmark_id,RI ok: fact_portfolio_snapshot.benchmark_id -> dim_benchmark.benchmark_id,INFO,0,0.0,,100% match
+F040,3_referential,fact_portfolio_snapshot,snapshot_date,RI ok: fact_portfolio_snapshot.snapshot_date -> dim_date.date,INFO,0,0.0,,100% match
+F041,3_referential,fact_transactions,security_id,null FK: fact_transactions.security_id -> dim_security.security_id,INFO,101597,34.005,,
+F042,3_referential,fact_transactions,advisor_id,RI ok: fact_transactions.advisor_id -> dim_advisor.advisor_id,INFO,0,0.0,,100% match
+F043,3_referential,fact_transactions,txn_date,RI ok: fact_transactions.txn_date -> dim_date.date,INFO,0,0.0,,100% match
+F044,4_cross_table,dim_benchmark,benchmark_id,benchmark not used by any snapshot or security,INFO,1,12.5,['6'],
+F045,4_cross_table,dim_client,client_since,client_since earlier than dim_date coverage,INFO,1549,61.347,,Not a date-table FK: dim_date covers the 2020-2024 fact period only
+F046,4_cross_table,fact_fees,aum_basis,aum_basis reconciles to snapshot aum,INFO,0,0.0,,Fees and snapshots agree; usable to verify AUM repairs
