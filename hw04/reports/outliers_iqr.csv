@@ -1,0 +1,27 @@
+stage,table,column,segment,n,q1,q3,lower_fence,upper_fence,flagged,flagged_pct
+raw,fact_transactions,amount,(all),298772,12078.93,81827.01,-92543.19,186449.13,7224,2.418
+raw,fact_transactions,amount,txn_type=Advisory Fee,35766,428.09,4653.68,-5910.3,10992.06,4117,11.511
+raw,fact_transactions,amount,txn_type=Buy,83556,18368.95,96652.03,-99055.67,214076.66,920,1.101
+raw,fact_transactions,amount,txn_type=Deposit,35981,25802.33,75659.05,-48982.75,150444.13,0,0.0
+raw,fact_transactions,amount,txn_type=Dividend,53864,18442.12,97303.76,-99850.34,215596.22,551,1.023
+raw,fact_transactions,amount,txn_type=Sell,59755,18279.5,96635.41,-99254.35,214169.27,672,1.125
+raw,fact_transactions,amount,txn_type=Withdrawal,29850,25108.51,74945.0,-49646.23,149699.75,0,0.0
+raw,fact_fees,amount,(all),122197,188.6,1597.44,-1924.66,3710.7,11341,9.281
+raw,dim_client,initial_aum,(all),2525,230337.92,2547458.93,-3245343.6,6023140.44,253,10.02
+raw,dim_client,initial_aum,client_tier=HNW,741,1441508.8,3815683.92,-2119753.88,7376946.6,0,0.0
+raw,dim_client,initial_aum,client_tier=Retail,1529,154446.4,382665.04,-187881.56,724993.0,0,0.0
+raw,dim_client,initial_aum,client_tier=UHNW,255,16906373.6,39912563.26,-17602910.89,74421847.76,0,0.0
+raw,fact_portfolio_snapshot,aum,(all),129547,255418.06,2923874.38,-3747266.43,6926558.87,13261,10.236
+clean,fact_transactions,amount,(all),298572,12079.1,81825.06,-92539.84,186444.0,7221,2.419
+clean,fact_transactions,amount,txn_type=Advisory Fee,35742,428.09,4653.68,-5910.3,10992.06,4116,11.516
+clean,fact_transactions,amount,txn_type=Buy,83498,18358.14,96631.33,-99051.65,214041.11,919,1.101
+clean,fact_transactions,amount,txn_type=Deposit,35956,25789.3,75654.11,-49007.91,150451.32,0,0.0
+clean,fact_transactions,amount,txn_type=Dividend,53826,18441.94,97312.11,-99863.31,215617.36,551,1.024
+clean,fact_transactions,amount,txn_type=Sell,59720,18283.18,96649.96,-99266.98,214200.12,671,1.124
+clean,fact_transactions,amount,txn_type=Withdrawal,29830,25102.5,74945.0,-49661.27,149708.77,0,0.0
+clean,fact_fees,amount,(all),122197,188.6,1597.44,-1924.66,3710.7,11341,9.281
+clean,dim_client,initial_aum,(all),2500,232013.48,2561143.48,-3261681.53,6054838.5,251,10.04
+clean,dim_client,initial_aum,client_tier=HNW,737,1441508.8,3816238.85,-2120586.27,7378333.92,0,0.0
+clean,dim_client,initial_aum,client_tier=Retail,1510,154507.52,382983.7,-188206.76,725697.98,0,0.0
+clean,dim_client,initial_aum,client_tier=UHNW,253,16978021.01,39920745.55,-17436065.8,74334832.36,0,0.0
+clean,fact_portfolio_snapshot,aum,(all),129547,255418.06,2923874.38,-3747266.43,6926558.87,13261,10.236

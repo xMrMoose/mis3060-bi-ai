@@ -23,6 +23,10 @@ hw04/
     ├── profile_raw.csv
     ├── dq_summary_raw.csv
     ├── data_quality_scorecard.csv
+    ├── ri_results.csv         ← Part D detail: 13 relationships, raw and clean
+    ├── rule_results.csv       ← Part D detail: every business rule, raw and clean
+    ├── reconciliations.csv    ← Part D detail: cross-table reconciliations
+    ├── outliers_iqr.csv       ← Part D detail: IQR fences and flag counts
     └── cleaning_report.md     ← Part E: business report for the portfolio committee
 ```
 
@@ -62,7 +66,14 @@ generic column profiler on any CSV: `python hw04/scripts/01_profile.py some_file
 and the audit trail to `data/audit/`. It stops with a `CleaningError` if any fix doesn't do what
 `decision_log.md` claims, and writes nothing until every table passes.
 
-*(Run instructions for 03 will be added once it is written.)*
+`03_validate.py` (about 20 seconds) runs the same checks on `data/dirty/` and `data/clean/`. It writes
+`reports/data_quality_scorecard.csv` plus four detail files. Run it after `02_clean.py`, because R5 reads
+the quarantine files. `check_referential_integrity(fact_df, fact_key, dim_df, dim_key)` is
+self-contained and reused in HW5.
+
+**IQR outliers: does "flagged" mean "wrong"? No.** Wealth data is right-skewed. Fences on all clients
+flag 10.04% of `initial_aum`, but 0 clients once the fences are set within each client tier, and every
+flagged value passes all business rules. A flag marks an unusual value to look at, not an error.
 
 ## Claude Code Review Findings
 
@@ -89,12 +100,22 @@ and the audit trail to `data/audit/`. It stops with a `CleaningError` if any fix
 | `02_clean.py` | Duplicated relabel logic in D-03/D-04 | Shared `relabel()` helper |
 | `02_clean.py` | D-13 fee-vs-snapshot flag check ran in one direction only | Now checks that the flags agree in both directions on every fee client-month |
 | `02_clean.py` | **Outcome** | All 10 fixed. Independent diff of raw vs clean: 199,228 changed cells = 199,228 logged changes; untouched tables byte-identical to raw |
-| `03_validate.py` | | |
+| `03_validate.py` | R4 compared Advisory Fee debits against *all* fee types, so a FAIL could come from how the test was built | R4 now runs under both readings (all fee types, and `fee_type = Advisory` only). Both fail (0.53% / 0.11%), so the D-20 conclusion doesn't depend on that choice |
+| `03_validate.py` | R5 "clean + quarantined = raw" compared only dollar totals, and unparseable amounts summed as 0, so a dropped row could go unnoticed | R5 also checks row counts and fails if any amount doesn't parse |
+| `03_validate.py` | Completeness counted only exact `""` as missing, so placeholders like `N/A` or whitespace would count as filled | Placeholder tokens and whitespace-only cells count as missing. `None` in certifications is deliberately excluded because D-04 established it means "no certification" |
+| `03_validate.py` | Calendar rule didn't check `is_quarter_end`, `is_year_end` or `week_of_year` | All derived columns are checked; the docstring notes that weekday holidays can't be checked without an exchange calendar |
+| `03_validate.py` | Unparseable dates grouped into one fake `<NA>Q<NA>` quarter in R4 | They become NaN and are dropped by the group-by |
+| `03_validate.py` | R2/R3 `drop_duplicates` on `client_id` would hide conflicting duplicates and depend on row order | A key whose duplicates disagree maps to NaN and fails the check |
+| `03_validate.py` | IQR `flagged_pct` used all rows as denominator while `n` counted parseable values | Same denominator (`n`) for both |
+| `03_validate.py` | `> 0` rules were implemented as `>= 0.01` | Strict `gt=0` bound |
+| `03_validate.py` | `pct_rule_pass` / `pct_completeness` had no zero-denominator guard | Return blank (N/A) like the other metrics |
+| `03_validate.py` | The printed "flagged ≠ wrong" sentence hard-coded its numbers | Numbers read from the outlier results computed in the same run |
+| `03_validate.py` | **Outcome** | All 10 fixed. Scorecard unchanged; R4 split into two readings (both FAIL); R5 now also proves row counts |
 
 ## Status
 
 - [x] Part A — Audit
 - [x] Part B — Decision log
 - [x] Part C — Cleaning program
-- [ ] Part D — Referential integrity and validation
+- [x] Part D — Referential integrity and validation
 - [ ] Part E — Business report

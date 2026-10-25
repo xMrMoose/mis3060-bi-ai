@@ -1,0 +1,18 @@
+stage,reconciliation,tables,evaluated,passed,pass_pct,result,detail
+raw,R1 fee aum_basis = snapshot aum (same client-month),"fact_fees, fact_portfolio_snapshot",122197,122197,100.0,PASS,0 fees with no snapshot
+raw,R2 fact_fees.advisor_id = dim_client.advisor_id,"fact_fees, dim_client",122197,122197,100.0,PASS,0 rows with no matching client not evaluated
+raw,R2 fact_portfolio_snapshot.advisor_id = dim_client.advisor_id,"fact_portfolio_snapshot, dim_client",129547,129547,100.0,PASS,0 rows with no matching client not evaluated
+raw,R2 fact_transactions.advisor_id = dim_client.advisor_id,"fact_transactions, dim_client",298572,298572,100.0,PASS,200 rows with no matching client not evaluated
+raw,R3 snapshot account_type = dim_client.primary_account_type,"fact_portfolio_snapshot, dim_client",129547,129547,100.0,PASS,
+raw,"R4 Advisory Fee debits = accruals (all fee types) per client-quarter, within 1%","fact_transactions, fact_fees",43668,233,0.534,FAIL,"20321 client-quarters present in only one table; median debited/accrued = 1.353; totals $263,780,236 debited vs $204,675,583 accrued"
+raw,"R4 Advisory Fee debits = accruals (fee_type = Advisory) per client-quarter, within 1%","fact_transactions, fact_fees",35029,37,0.106,FAIL,"21497 client-quarters present in only one table; median debited/accrued = 3.172; totals $263,780,236 debited vs $53,617,373 accrued"
+clean,R1 fee aum_basis = snapshot aum (same client-month),"fact_fees, fact_portfolio_snapshot",122197,122197,100.0,PASS,0 fees with no snapshot
+clean,R2 fact_fees.advisor_id = dim_client.advisor_id,"fact_fees, dim_client",122197,122197,100.0,PASS,0 rows with no matching client not evaluated
+clean,R2 fact_portfolio_snapshot.advisor_id = dim_client.advisor_id,"fact_portfolio_snapshot, dim_client",129547,129547,100.0,PASS,0 rows with no matching client not evaluated
+clean,R2 fact_transactions.advisor_id = dim_client.advisor_id,"fact_transactions, dim_client",298572,298572,100.0,PASS,0 rows with no matching client not evaluated
+clean,R3 snapshot account_type = dim_client.primary_account_type,"fact_portfolio_snapshot, dim_client",129547,129547,100.0,PASS,
+clean,"R4 Advisory Fee debits = accruals (all fee types) per client-quarter, within 1%","fact_transactions, fact_fees",43644,233,0.534,FAIL,"20297 client-quarters present in only one table; median debited/accrued = 1.353; totals $263,709,737 debited vs $204,675,583 accrued"
+clean,"R4 Advisory Fee debits = accruals (fee_type = Advisory) per client-quarter, within 1%","fact_transactions, fact_fees",35005,37,0.106,FAIL,"21473 client-quarters present in only one table; median debited/accrued = 3.172; totals $263,709,737 debited vs $53,617,373 accrued"
+clean,R5 fact_transactions.amount: clean + quarantined = raw (rows and $),"fact_transactions (raw, clean, quarantine)",1,1,100.0,PASS,"rows 298,572 + 200 vs 298,772; clean $16,145,257,160.26 + quarantined $10,888,495.37 vs raw $16,156,145,655.63; unparseable values 0"
+clean,R5 fact_fees.amount: clean + quarantined = raw (rows and $),"fact_fees (raw, clean, quarantine)",1,1,100.0,PASS,"rows 122,197 + 0 vs 122,197; clean $204,675,583.12 + quarantined $0.00 vs raw $204,675,583.12; unparseable values 0"
+clean,R5 fact_portfolio_snapshot.aum: clean + quarantined = raw (rows and $),"fact_portfolio_snapshot (raw, clean, quarantine)",1,1,100.0,PASS,"rows 129,547 + 0 vs 129,547; clean $566,681,084,542.48 + quarantined $0.00 vs raw $566,681,084,542.48; unparseable values 0"

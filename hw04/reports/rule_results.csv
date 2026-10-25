@@ -1,0 +1,93 @@
+stage,table,rule,evaluated,failed,pass_pct
+raw,dim_advisor,"years_experience in [0, 60]",25,0,100.0
+raw,dim_advisor,aum_target_mm > 0,25,0,100.0
+raw,dim_advisor,region in code list,25,0,100.0
+raw,dim_advisor,certifications in code list,25,6,76.0
+raw,dim_benchmark,asset_class in code list,8,0,100.0
+raw,dim_client,"age in [18, 110]",2525,0,100.0
+raw,dim_client,state is USPS code,2525,78,96.911
+raw,dim_client,risk_profile in code list,2449,0,100.0
+raw,dim_client,client_tier in code list,2525,0,100.0
+raw,dim_client,primary_account_type in code list,2525,0,100.0
+raw,dim_client,initial_aum > 0,2525,0,100.0
+raw,dim_client,client_since <= 2024-12-31,2525,0,100.0
+raw,dim_client,client_tier matches initial_aum band,2525,0,100.0
+raw,dim_date,"quarter in [1, 4]",1827,0,100.0
+raw,dim_date,"month in [1, 12]",1827,0,100.0
+raw,dim_date,"week_of_year in [1, 53]",1827,0,100.0
+raw,dim_date,calendar attributes agree with date,1827,0,100.0
+raw,dim_security,asset_class in code list,500,0,100.0
+raw,dim_security,"expense_ratio_bps in [0, 300]",219,0,100.0
+raw,dim_security,ETF: no sector + expense ratio; non-ETF: reverse,500,0,100.0
+raw,fact_fees,fee_type in code list,122197,0,100.0
+raw,fact_fees,aum_basis > 0,122197,0,100.0
+raw,fact_fees,"bps_charged in [0, 150]",122197,0,100.0
+raw,fact_fees,amount > 0,122197,0,100.0
+raw,fact_fees,"amount = aum_basis x bps / 120,000",122197,0,100.0
+raw,fact_fees,fee_date in 2020-2024,122197,0,100.0
+raw,fact_fees,fee_date on 1st of month,122197,0,100.0
+raw,fact_fees,flag_aum_floor is 0/1,0,0,
+raw,fact_portfolio_snapshot,aum >= 0,129547,0,100.0
+raw,fact_portfolio_snapshot,"cash_pct in [0, 1]",129547,0,100.0
+raw,fact_portfolio_snapshot,return_ytd >= -100%,129247,0,100.0
+raw,fact_portfolio_snapshot,benchmark_return_ytd >= -100%,129547,0,100.0
+raw,fact_portfolio_snapshot,account_type in code list,129547,0,100.0
+raw,fact_portfolio_snapshot,alpha = return - benchmark,129247,0,100.0
+raw,fact_portfolio_snapshot,"year/month = snapshot_date, 1st of month",129547,0,100.0
+raw,fact_portfolio_snapshot,snapshot_date in 2020-2024,129547,0,100.0
+raw,fact_portfolio_snapshot,flag_aum_floor is 0/1,0,0,
+raw,fact_portfolio_snapshot,flag_return_outlier is 0/1,0,0,
+raw,fact_transactions,txn_type in code list,298772,0,100.0
+raw,fact_transactions,amount > 0,298772,0,100.0
+raw,fact_transactions,price > 0,197175,0,100.0
+raw,fact_transactions,shares > 0 on security txns (sign rule),197175,836,99.576
+raw,fact_transactions,security fields filled iff Buy/Sell/Dividend,298772,0,100.0
+raw,fact_transactions,amount = shares x price,197175,836,99.576
+raw,fact_transactions,txn_date in 2020-2024,298772,0,100.0
+raw,fact_transactions,flag_after_last_snapshot is 0/1,0,0,
+clean,dim_advisor,"years_experience in [0, 60]",25,0,100.0
+clean,dim_advisor,aum_target_mm > 0,25,0,100.0
+clean,dim_advisor,region in code list,25,0,100.0
+clean,dim_advisor,certifications in code list,25,0,100.0
+clean,dim_benchmark,asset_class in code list,8,0,100.0
+clean,dim_client,"age in [18, 110]",2500,0,100.0
+clean,dim_client,state is USPS code,2500,0,100.0
+clean,dim_client,risk_profile in code list,2500,0,100.0
+clean,dim_client,client_tier in code list,2500,0,100.0
+clean,dim_client,primary_account_type in code list,2500,0,100.0
+clean,dim_client,initial_aum > 0,2500,0,100.0
+clean,dim_client,client_since <= 2024-12-31,2500,0,100.0
+clean,dim_client,client_tier matches initial_aum band,2500,0,100.0
+clean,dim_date,"quarter in [1, 4]",1827,0,100.0
+clean,dim_date,"month in [1, 12]",1827,0,100.0
+clean,dim_date,"week_of_year in [1, 53]",1827,0,100.0
+clean,dim_date,calendar attributes agree with date,1827,0,100.0
+clean,dim_security,asset_class in code list,500,0,100.0
+clean,dim_security,"expense_ratio_bps in [0, 300]",219,0,100.0
+clean,dim_security,ETF: no sector + expense ratio; non-ETF: reverse,500,0,100.0
+clean,fact_fees,fee_type in code list,122197,0,100.0
+clean,fact_fees,aum_basis > 0,122197,0,100.0
+clean,fact_fees,"bps_charged in [0, 150]",122197,0,100.0
+clean,fact_fees,amount > 0,122197,0,100.0
+clean,fact_fees,"amount = aum_basis x bps / 120,000",122197,0,100.0
+clean,fact_fees,fee_date in 2020-2024,122197,0,100.0
+clean,fact_fees,fee_date on 1st of month,122197,0,100.0
+clean,fact_fees,flag_aum_floor is 0/1,122197,0,100.0
+clean,fact_portfolio_snapshot,aum >= 0,129547,0,100.0
+clean,fact_portfolio_snapshot,"cash_pct in [0, 1]",129547,0,100.0
+clean,fact_portfolio_snapshot,return_ytd >= -100%,129547,0,100.0
+clean,fact_portfolio_snapshot,benchmark_return_ytd >= -100%,129547,0,100.0
+clean,fact_portfolio_snapshot,account_type in code list,129547,0,100.0
+clean,fact_portfolio_snapshot,alpha = return - benchmark,129547,0,100.0
+clean,fact_portfolio_snapshot,"year/month = snapshot_date, 1st of month",129547,0,100.0
+clean,fact_portfolio_snapshot,snapshot_date in 2020-2024,129547,0,100.0
+clean,fact_portfolio_snapshot,flag_aum_floor is 0/1,129547,0,100.0
+clean,fact_portfolio_snapshot,flag_return_outlier is 0/1,129547,0,100.0
+clean,fact_transactions,txn_type in code list,298572,0,100.0
+clean,fact_transactions,amount > 0,298572,0,100.0
+clean,fact_transactions,price > 0,197044,0,100.0
+clean,fact_transactions,shares > 0 on security txns (sign rule),197044,0,100.0
+clean,fact_transactions,security fields filled iff Buy/Sell/Dividend,298572,0,100.0
+clean,fact_transactions,amount = shares x price,197044,0,100.0
+clean,fact_transactions,txn_date in 2020-2024,298572,0,100.0
+clean,fact_transactions,flag_after_last_snapshot is 0/1,298572,0,100.0

@@ -266,6 +266,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | **Decision** | **leave as is**; test a quarterly reconciliation in Part D before calling it a defect |
 | **Justification** | A ratio near 3 suggests fees accrue monthly but are debited quarterly. That's a billing convention, not an error. Nothing should be changed until that hypothesis is tested. |
 | **Risk** | If Part D shows they don't reconcile at any grain, one of the two fee sources is wrong, and that becomes a reported limitation. |
+| **Outcome (Part D)** | **The hypothesis was rejected.** In `03_validate.py` R4, per client-quarter, debits match accruals within 1% in 0.53% of client-quarters against all fee types and 0.11% against `fee_type = Advisory` only. Month, year and lifetime grains also fail (best case 1.5%). Debits occur about 3.4 times a client-year on random days, and total $263.7M against $204.7M accrued (129%). The decision stays **leave as is**: there's no basis for choosing which source is right. It's reported as a limitation, and revenue should be measured from `fact_fees` (the source that reconciles to AUM × bps) until finance explains the debits. |
 
 ---
 

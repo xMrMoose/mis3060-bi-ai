@@ -99,8 +99,10 @@ kept unchanged; `1` = flagged, `0` = not flagged. Nothing is excluded by default
    sixth risk category (D-03).
 5. **Activity after account closure.** 2,410 transactions are kept but flagged, because it's unclear
    whether `is_active` or the transactions are wrong (D-08).
-6. **Advisory Fee transactions don't match `fact_fees` month by month.** The median ratio is 3.11, which
-   is consistent with quarterly debiting of monthly accruals. This is tested in Part D, not changed (D-20).
+6. **Advisory Fee transactions don't reconcile to `fact_fees` at any grain.** Debits total $263.7M against
+   $204.7M accrued, and only 0.53% of client-quarters agree within 1% (0.11% against Advisory fees
+   only). Quarterly billing was tested and rejected. Use `fact_fees` for fee revenue: it reconciles
+   exactly to AUM × bps. Treat Advisory Fee transactions as cash movements only (D-20).
 7. **One fee at 100.38 bps.** It reconciles to its own amount and was kept (D-15).
 8. **$10.9M of transactions (0.067%) are excluded** because their client_ids exist nowhere. They're held in
    quarantine until the source system can supply the clients (D-07).
