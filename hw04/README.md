@@ -80,7 +80,7 @@ generic column profiler on any CSV: `python hw04/scripts/01_profile.py some_file
 ## Status
 
 - [x] Part A — Audit
-- [ ] Part B — Decision log
+- [x] Part B — Decision log
 - [ ] Part C — Cleaning program
 - [ ] Part D — Referential integrity and validation
 - [ ] Part E — Business report
