@@ -71,7 +71,9 @@ flagged in both the snapshot and fee tables.
 *Risk:* small for AUM totals. The larger risk is distorted performance figures (see call 2).
 
 **2. Extreme returns were flagged, not removed.** 1,475 snapshots show year-to-date returns below −90%
-(498) or above +100% (977, up to 9,467%). The arithmetic in these rows is consistent: return −
+(498) or above +100% (977, up to 9,467%). These bounds are a chosen plausibility threshold, not a
+hard limit. Only a loss beyond −100% is impossible. They sit well outside anything the benchmarks
+produced (−24.0% to +27.4%) and outside the middle 98% of snapshots (−57.4% to +79.4%). The arithmetic in these rows is consistent: return −
 benchmark = alpha. They come from small accounts whose deposits and withdrawals are large relative
 to their balance, and 981 of them belong to clients who hit the $1,000 floor. The return is not
 adjusted for cash flows, so these values aren't errors, but they aren't meaningful performance
