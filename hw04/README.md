@@ -118,4 +118,4 @@ flagged value passes all business rules. A flag marks an unusual value to look a
 - [x] Part B — Decision log
 - [x] Part C — Cleaning program
 - [x] Part D — Referential integrity and validation
-- [ ] Part E — Business report
+- [x] Part E — Business report
