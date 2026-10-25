@@ -58,7 +58,11 @@ python hw04/scripts/03_validate.py
 `reports/profile_raw.csv` and `reports/dq_summary_raw.csv`. Given file paths, it runs only the
 generic column profiler on any CSV: `python hw04/scripts/01_profile.py some_file.csv`.
 
-*(Run order for 02 and 03 will be confirmed once those scripts are written.)*
+`02_clean.py` (about 15 seconds) reads `data/dirty/` and writes the 8 clean tables to `data/clean/`
+and the audit trail to `data/audit/`. It stops with a `CleaningError` if any fix doesn't do what
+`decision_log.md` claims, and writes nothing until every table passes.
+
+*(Run instructions for 03 will be added once it is written.)*
 
 ## Claude Code Review Findings
 
@@ -74,13 +78,23 @@ generic column profiler on any CSV: `python hw04/scripts/01_profile.py some_file
 | `01_profile.py` | Cross-table placeholder check was hard-coded to the string `1000.0` | Reuses the generic value-spike detector and confirms the same value on the same client-month in both tables |
 | `01_profile.py` | Minor: value shapes computed twice per column; snapshot recency compared as strings | Compute once; compare parsed dates |
 | `01_profile.py` | **Outcome** | All 10 fixed. Findings unchanged on this data (46: 9 ERROR / 11 WARN / 26 INFO): the fixes make the checks sound when rerun on clean data in Part D |
-| `02_clean.py` | | |
+| `02_clean.py` | **Quarantine files held modified rows**: orphan transactions were quarantined after `security_id`/`shares` fixes, so 131 `security_id`s and 1 `shares` in the quarantine file differed from raw, and `value_changes.csv` logged 133 changes to rows that aren't in the clean output (confirmed against the output files) | Reordered: quarantine runs first. The script now verifies that quarantined rows equal the raw rows and that every logged change applies to a clean row. Decision-log counts updated (D-05 197,044, D-06 835, D-02 77) with the reason |
+| `02_clean.py` | Every safety check was a bare `assert`, which `python -O` removes | Replaced with `check()` raising `CleaningError`; verified the script runs with `-O` |
+| `02_clean.py` | Clean files were written inside the validation loop, so a failure would leave a mix of new and stale outputs | Validate all 8 tables and the raw hashes first, then write everything |
+| `02_clean.py` | D-08: an inactive client with no snapshots would never be flagged (NaT comparisons are False) | No snapshot is treated as "after the last snapshot". (The only such client, 2515, is a quarantined duplicate with no transactions, so the count is unchanged) |
+| `02_clean.py` | D-06 reconciliation treated NaN as passing | Check `~(gap <= 0.01)` so unparseable shares/price/amount count as failing |
+| `02_clean.py` | D-12 code (exact rewrite) didn't match the decision log (round to 6 dp) | Checked: all 891 values already have ≤ 6 dp, so the exact rewrite is correct; decision log wording fixed to match |
+| `02_clean.py` | `iloc[0]` on an empty selection would crash D-12 if a column had no e-notation | Example printed only when there are matches |
+| `02_clean.py` | Several "after" checks were tautologies (D-03, D-04, D-07, D-14) | Replaced with independent checks: values must fall in the allowed set with unmasked values unchanged; clean + quarantined dollars must equal raw; return flag rebuilt from benchmark + alpha must agree |
+| `02_clean.py` | Duplicated relabel logic in D-03/D-04 | Shared `relabel()` helper |
+| `02_clean.py` | D-13 fee-vs-snapshot flag check ran in one direction only | Now checks that the flags agree in both directions on every fee client-month |
+| `02_clean.py` | **Outcome** | All 10 fixed. Independent diff of raw vs clean: 199,228 changed cells = 199,228 logged changes; untouched tables byte-identical to raw |
 | `03_validate.py` | | |
 
 ## Status
 
 - [x] Part A — Audit
 - [x] Part B — Decision log
-- [ ] Part C — Cleaning program
+- [x] Part C — Cleaning program
 - [ ] Part D — Referential integrity and validation
 - [ ] Part E — Business report

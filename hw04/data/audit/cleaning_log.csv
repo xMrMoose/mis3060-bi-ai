@@ -1,0 +1,15 @@
+decision_id,table,issue,action,rows_affected,note
+D-01,dim_client,client entered twice with altered last name,quarantine,25,"Kept lowest client_id (complete name, owns all activity)"
+D-07,fact_transactions,orphan client_id,quarantine,200,"Amount $10,888,495.37; not recreated as placeholder clients"
+D-05,fact_transactions,security_id stored as float text,convert,197044,Stripped trailing '.0'; RI to dim_security now 100%
+D-11,fact_portfolio_snapshot,return_ytd stored as percent string,convert,300,Stripped % and divided by 100; verified by return - benchmark = alpha
+D-12a,fact_portfolio_snapshot,return_ytd in scientific notation,standardize,135,Text rewritten exactly via Decimal; numeric value unchanged
+D-12b,fact_portfolio_snapshot,active_alpha_ytd in scientific notation,standardize,756,Text rewritten exactly via Decimal; numeric value unchanged
+D-02,dim_client,state spelled out,standardize,77,Explicit 7-entry name->USPS map
+D-04,dim_advisor,null-like token 'None' means no certification,standardize,6,Keeps meaning; avoids parse-to-null in BI tools
+D-06,fact_transactions,negative shares on Buy,convert,835,abs(shares); every security row reconciles to amount within $0.01
+D-03,dim_client,blank risk_profile,fill,75,"Explicit label, not an inferred profile"
+D-08,fact_transactions,inactive client transacts after last snapshot,flag,2410,Rows kept; flag_after_last_snapshot = 1
+D-13a,fact_portfolio_snapshot,"AUM held at $1,000 floor",flag,420,Value kept; flag_aum_floor = 1
+D-13b,fact_fees,"aum_basis held at $1,000 floor",flag,386,Value kept; matches snapshot flag on same client-month
+D-14,fact_portfolio_snapshot,"return_ytd outside [-90%, +100%]",flag,1475,Values kept (alpha identity holds); flag_return_outlier = 1

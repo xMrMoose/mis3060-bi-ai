@@ -9,14 +9,18 @@ Finding IDs (F0xx) refer to `dq_summary_raw.csv`.
 
 ## Summary
 
+"Rows" is the number of rows each decision changes in the **clean output**. Quarantine runs first
+(see cleaning order), so D-02, D-05 and D-06 are slightly lower than the raw audit counts: their other
+rows belong to quarantined records and are kept untouched in quarantine.
+
 | ID | Table / column | Decision | Rows |
 |---|---|---|---:|
 | D-01 | dim_client (clients 2501–2525) | quarantine | 25 |
-| D-02 | dim_client.state | standardize | 78 |
+| D-02 | dim_client.state | standardize | 77 (raw 78) |
 | D-03 | dim_client.risk_profile | fill | 75 |
 | D-04 | dim_advisor.certifications | standardize | 6 |
-| D-05 | fact_transactions.security_id | convert | 197,175 |
-| D-06 | fact_transactions.shares | convert | 836 |
+| D-05 | fact_transactions.security_id | convert | 197,044 (raw 197,175) |
+| D-06 | fact_transactions.shares | convert | 835 (raw 836) |
 | D-07 | fact_transactions.client_id | quarantine | 200 |
 | D-08 | fact_transactions (inactive clients) | flag | 2,410 |
 | D-09 | fact_transactions.txn_date | leave as is | 84,999 |
@@ -145,9 +149,9 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | **Table / column** | `fact_portfolio_snapshot.return_ytd` (135), `active_alpha_ytd` (756) |
 | **Evidence** | F013 / F014: values like `-1.9e-05`. Python parses them, but they are a second text format in the column. |
 | **Dimension violated** | Consistency (format) |
-| **Decision** | **standardize** to plain decimal notation with the column's 6 decimal places |
+| **Decision** | **standardize** to plain decimal notation, rewritten exactly (every one of the 891 values has at most 6 decimal places, the column's precision, so no rounding is needed) |
 | **Justification** | Some BI and Excel imports read `1.9e-05` as text, or interpret it by locale. The value doesn't change. |
-| **Risk** | Rounding to 6 dp changes values below 0.0000005. Assert that the numeric value is unchanged within 1e-6 and that the alpha identity still holds. |
+| **Risk** | None to the values: the rewrite is exact (Decimal arithmetic, no rounding). Check that every numeric value is unchanged and that the alpha identity still holds. |
 
 ## D-13: AUM held at a $1,000 floor
 
@@ -276,11 +280,19 @@ These cross-checks passed in Part A, and the cleaning will use them to verify re
 - `client_tier` agrees with the `initial_aum` band (Retail < $500K ≤ HNW < $5M ≤ UHNW) for all 2,525 clients
 - `dim_date` derived columns (year, quarter, month, week, names, period-end flags, weekend = non-trading) agree with `date`
 
-## Planned cleaning order (for `02_clean.py`)
+## Cleaning order (for `02_clean.py`)
 
-1. **Convert formats first** (D-05, D-11, D-12). These are lossless and make the reconciliation checks possible.
-2. **Fix values that can be verified** (D-02, D-04, D-06). Each fix is asserted against a reconciliation.
-3. **Quarantine** (D-01, D-07). Dimension duplicates go first, then fact orphans checked against the cleaned dimension.
-4. **Fill** (D-03). Runs after D-01 so the quarantined duplicate isn't counted.
+1. **Quarantine** (D-01, D-07). Dimension duplicates go first, then fact orphans are checked against the
+   de-duplicated dimension.
+2. **Convert formats** (D-05, D-11, D-12). These are lossless and make the reconciliation checks possible.
+3. **Fix values that can be verified** (D-02, D-04, D-06). Each fix is checked against a reconciliation.
+4. **Fill** (D-03).
 5. **Flag** (D-08, D-13, D-14). Runs last, on the final rows, so the flag counts match the clean output.
-6. **Assert** `raw rows = clean rows + quarantined rows` for all 8 tables.
+6. **Check** `raw rows = clean rows + quarantined rows` for all 8 tables.
+
+*Revised after the Claude Code review of `02_clean.py`.* The first plan converted formats before
+quarantining. As a result, the orphan-transaction quarantine file held 131 converted `security_id`s and
+1 sign-flipped `shares` value instead of the raw values, and `value_changes.csv` logged 133 changes to
+rows that aren't in the clean output. Quarantining first keeps quarantined records exactly as received
+(a source team can restore them as is) and makes every logged change apply to a clean row. No
+decision changed, only the order and the D-02/D-05/D-06 counts above.
