@@ -26,8 +26,10 @@ secrets.*
 
 # ── Data (often large / sensitive — track intentionally) ─
 *.csv
-# Exception: homework deliverables (hw01/, hw02/, ... hw08/) are CSVs that must be tracked
+# Exception: homework deliverables (hw01/, hw02/, ... hw08/) are CSVs that must be tracked,
+# including ones in nested folders (e.g. hw04/data/dirty/, hw04/reports/)
 !hw*/*.csv
+!hw*/**/*.csv
 *.xlsx
 *.parquet
 *.h5
