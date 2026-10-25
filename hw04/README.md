@@ -75,6 +75,30 @@ self-contained and reused in HW5.
 flag 10.04% of `initial_aum`, but 0 clients once the fences are set within each client tier, and every
 flagged value passes all business rules. A flag marks an unusual value to look at, not an error.
 
+## Process Note: How AI Was Used
+
+The brief asks for scripts and the report to be drafted in **Claude Desktop**, run in VS Code, and
+reviewed by **Claude Code** before each commit. This assignment departed from that split: every
+script, the decision log and the report were **drafted in Claude Code** (inside VS Code), from my
+instructions and decisions. Separation between drafting and checking came from three things:
+
+- **A separate review pass before every script commit.** Claude Code's `/code-review` ran as an
+  independent review agent. Its findings and my responses are in the table below. Every finding was
+  fixed, and 2 of them changed results (the quarantine order in `02_clean.py`, and the R4 test design
+  in `03_validate.py`).
+- **Script output as the source of truth.** Every number in `decision_log.md` and
+  `reports/cleaning_report.md` was re-checked against script output before committing, and corrected
+  where it didn't match (e.g. the flag count 4,691 → 4,442 rows, and the rule count 40 → 46 in a commit
+  message).
+- **My own decisions on the judgement calls.** The inactive-client transactions (flag), the weekend
+  dates (leave as is) and the blank risk profiles (`Unknown`) were decided by me after reviewing the
+  evidence, and I reviewed the final report before submission.
+
+A QA pass against the brief, after Part E, found issues the audit had never tested: holdings, price
+consistency, market holidays, zip codes and shared security names. Five checks were added to
+`01_profile.py`, and decision-log entries D-21 to D-26 were added. All of them are "leave as is", so
+the clean data didn't change.
+
 ## Claude Code Review Findings
 
 | Script | What Claude Code flagged | What I did about it |
@@ -88,7 +112,15 @@ flagged value passes all business rules. A flag marks an unusual value to look a
 | `01_profile.py` | "Mixed formats" treated `1500` and `1500.25` as different formats | Whole numbers and decimals now count as one numeric format |
 | `01_profile.py` | Cross-table placeholder check was hard-coded to the string `1000.0` | Reuses the generic value-spike detector and confirms the same value on the same client-month in both tables |
 | `01_profile.py` | Minor: value shapes computed twice per column; snapshot recency compared as strings | Compute once; compare parsed dates |
-| `01_profile.py` | **Outcome** | All 10 fixed. Findings unchanged on this data (46: 9 ERROR / 11 WARN / 26 INFO): the fixes make the checks sound when rerun on clean data in Part D |
+| `01_profile.py` | **Outcome** | All 10 fixed. Findings unchanged on this data (46: 9 ERROR / 11 WARN / 26 INFO): the fixes make the checks sound when rerun on clean data in Part D. *After the QA review, 5 checks were added (52 findings: 9 / 16 / 27); see the next rows.* |
+| `01_profile.py` (QA checks) | The non-trading-day check trusted `dim_date.is_trading_day`, which the new holiday check shows is wrong, so trades on market holidays were never counted | Both checks use one rebuilt NYSE calendar: trades on non-trading days 40,649 → 44,262 (3,613 on holidays). D-09 and the report updated |
+| `01_profile.py` (QA checks) | Running-position sort broke ties on text `txn_id` (`'10'` before `'9'`) | Numeric tie-break (count unchanged at 43,010) |
+| `01_profile.py` (QA checks) | Dividend check passes a dividend paid before the first Buy or after a full Sell | **Kept by choice:** "held on the dividend date" depends on position arithmetic that D-21 shows is broken, so the position-independent "never bought" test is used. The reason is written in the code |
+| `01_profile.py` (QA checks) | Zip check counted malformed or blank zips as region mismatches | Only well-formed 5-digit zips are tested |
+| `01_profile.py` (QA checks) | Price check had no guard for zero or negative medians and grouped `45` and `45.0` separately | Positive prices only; keys normalised |
+| `01_profile.py` (QA checks) | Detail text hard-coded the year range, the "every weekday" claim and "pairs"/"different tickers" | All computed (holiday count and date range; names, securities and ticker distinctness; severity rises to WARN if tickers repeat) |
+| `01_profile.py` (QA checks) | Minor: dividend lookup used a Python loop; groupby built twice; no example on the short-sell finding; stray whitespace edit | Vectorised `MultiIndex.isin`; groupby reused; example added; whitespace restored |
+| `01_profile.py` (QA checks) | **Outcome** | 9 of 10 fixed, 1 kept with a documented reason. 52 findings (9 / 16 / 27); decision-log finding IDs re-mapped and re-verified; clean data unchanged |
 | `02_clean.py` | **Quarantine files held modified rows**: orphan transactions were quarantined after `security_id`/`shares` fixes, so 131 `security_id`s and 1 `shares` in the quarantine file differed from raw, and `value_changes.csv` logged 133 changes to rows that aren't in the clean output (confirmed against the output files) | Reordered: quarantine runs first. The script now verifies that quarantined rows equal the raw rows and that every logged change applies to a clean row. Decision-log counts updated (D-05 197,044, D-06 835, D-02 77) with the reason |
 | `02_clean.py` | Every safety check was a bare `assert`, which `python -O` removes | Replaced with `check()` raising `CleaningError`; verified the script runs with `-O` |
 | `02_clean.py` | Clean files were written inside the validation loop, so a failure would leave a mix of new and stale outputs | Validate all 8 tables and the raw hashes first, then write everything |

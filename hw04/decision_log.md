@@ -23,7 +23,7 @@ rows belong to quarantined records and are kept untouched in quarantine.
 | D-06 | fact_transactions.shares | convert | 835 (raw 836) |
 | D-07 | fact_transactions.client_id | quarantine | 200 |
 | D-08 | fact_transactions (inactive clients) | flag | 2,410 |
-| D-09 | fact_transactions.txn_date | leave as is | 84,999 |
+| D-09 | fact_transactions.txn_date | leave as is | 84,999 (44,262 trades) |
 | D-10 | fact_transactions.security_id / shares / price | leave as is | 101,597 |
 | D-11 | fact_portfolio_snapshot.return_ytd | convert | 300 |
 | D-12 | fact_portfolio_snapshot.return_ytd / active_alpha_ytd | standardize | 891 |
@@ -35,6 +35,12 @@ rows belong to quarantined records and are kept untouched in quarantine.
 | D-18 | dim_client.client_since | leave as is | 1,549 |
 | D-19 | Type encodings across tables | leave as is | — |
 | D-20 | fact_transactions (Advisory Fee) vs fact_fees | leave as is | 35,766 |
+| D-21 | fact_transactions.shares (sold more than bought) | leave as is | 43,010 |
+| D-22 | fact_transactions (dividends without a Buy) | leave as is | 7,128 |
+| D-23 | dim_date.is_trading_day (market holidays) | leave as is | 47 |
+| D-24 | fact_transactions.price (dispersion within security) | leave as is | 36,280 |
+| D-25 | dim_client.zip_code vs state | leave as is | 2,211 |
+| D-26 | dim_security.name (shared names) | leave as is | 6 |
 
 The decisions add three flag columns: `flag_after_last_snapshot` (fact_transactions), `flag_aum_floor`
 (fact_portfolio_snapshot and fact_fees) and `flag_return_outlier` (fact_portfolio_snapshot).
@@ -48,7 +54,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `dim_client`, all columns (client_id 2501–2525) |
-| **Evidence** | F005: 50 rows (25 pairs) match on every column except `client_id` and `last_name`. Each of client_id 2501–2525 duplicates an earlier client (IDs 99–2421). In 23 pairs the last name is cut short (`Taylo` / `Taylor`, `Marti` / `Martin`); in 2 it has an extra letter (`Leen` / `Lee`, `Pacen` / `Pace`). F017: none of the 25 IDs appear in any fact table. |
+| **Evidence** | F005: 50 rows (25 pairs) match on every column except `client_id` and `last_name`. Each of client_id 2501–2525 duplicates an earlier client (IDs 99–2421). In 23 pairs the last name is cut short (`Taylo` / `Taylor`, `Marti` / `Martin`); in 2 it has an extra letter (`Leen` / `Lee`, `Pacen` / `Pace`). F020: none of the 25 IDs appear in any fact table. |
 | **Dimension violated** | Uniqueness, Accuracy |
 | **Decision** | **quarantine** the 25 rows with client_id 2501–2525 to `quarantine_dim_client_duplicates.csv`, recording the original client_id each one duplicates |
 | **Justification** | Same person, same age, zip, AUM, start date and advisor: one client entered twice. The originals have the complete names and own all the activity, so removing the copies loses no facts. Keeping them would inflate the client count by 25 (1%) and the AUM under management. |
@@ -70,7 +76,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `dim_client.risk_profile` |
-| **Evidence** | F021: 76 blanks (75 after D-01 removes one duplicate). They span every tier (Retail 49, HNW 18, UHNW 9). No other column predicts risk profile: benchmark assignment varies within every risk profile. |
+| **Evidence** | F026: 76 blanks (75 after D-01 removes one duplicate). They span every tier (Retail 49, HNW 18, UHNW 9). No other column predicts risk profile: benchmark assignment varies within every risk profile. |
 | **Dimension violated** | Completeness |
 | **Decision** | **fill** with the explicit label `Unknown` |
 | **Justification** | A risk profile can't be inferred without inventing a suitability assessment. `Unknown` invents nothing: it makes the gap visible in Power BI (a named slicer value rather than "(Blank)"), and compliance can list clients who need a suitability review. |
@@ -103,7 +109,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `fact_transactions.shares` |
-| **Evidence** | F006 / F007: 836 rows, all `txn_type = Buy`, have negative shares while `amount` is positive. F031: for all 836, \|shares\| × price = amount within $0.01. |
+| **Evidence** | F006 / F007: 836 rows, all `txn_type = Buy`, have negative shares while `amount` is positive. F037: for all 836, \|shares\| × price = amount within $0.01. |
 | **Dimension violated** | Validity (sign rule), Consistency |
 | **Decision** | **convert** shares to their absolute value |
 | **Justification** | In this table direction comes from `txn_type`, and every other share count is positive. The amount reconciles exactly once the sign is flipped, so the repair is verified rather than assumed. This continues the HW2 finding that the error is limited to `shares`. |
@@ -125,7 +131,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `fact_transactions` (clients with `dim_client.is_active = False`) |
-| **Evidence** | F020: 2,410 transactions from 131 of 175 inactive clients fall after the month of their last snapshot (Buy 689, Sell 482, Dividend 439, Advisory Fee 284, Deposit 278, Withdrawal 238). Active clients have 0 such rows. No fees are charged after the last snapshot. |
+| **Evidence** | F025: 2,410 transactions from 131 of 175 inactive clients fall after the month of their last snapshot (Buy 689, Sell 482, Dividend 439, Advisory Fee 284, Deposit 278, Withdrawal 238). Active clients have 0 such rows. No fees are charged after the last snapshot. |
 | **Dimension violated** | Consistency (cross-table), Accuracy/Plausibility |
 | **Decision** | **flag**: add `flag_after_last_snapshot` (0/1) to fact_transactions |
 | **Justification** | Snapshots and fees agree that the account closed, but the transactions say otherwise. We can't tell which side is wrong: closing liquidations or late postings would be real, while key errors would not. Flagging keeps the rows so analysts can include or exclude them. |
@@ -136,7 +142,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `fact_portfolio_snapshot.return_ytd` |
-| **Evidence** | F003: 300 values like `9.28%`. F029: for all 300, value / 100 = `benchmark_return_ytd + active_alpha_ytd` within 1e-4. Without dividing by 100, 270 of them would read as returns above 100%. |
+| **Evidence** | F003: 300 values like `9.28%`. F035: for all 300, value / 100 = `benchmark_return_ytd + active_alpha_ytd` within 1e-4. Without dividing by 100, 270 of them would read as returns above 100%. |
 | **Dimension violated** | Validity, Consistency (unit) |
 | **Decision** | **convert**: strip `%` and divide by 100 |
 | **Justification** | Every other row stores returns as decimal fractions. The alpha identity (return − benchmark = alpha) confirms both the scale and the value for every converted row. |
@@ -158,7 +164,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `fact_portfolio_snapshot.aum` (420 rows), `fact_fees.aum_basis` (386 rows) |
-| **Evidence** | F011 / F015 / F018: `1000.0` occurs 420× in snapshots and 386× in fees, while the next most common value occurs only twice. Every fee row at 1000.0 matches a snapshot at 1000.0 for the same client-month. **No AUM anywhere is below $1,000**, and 405 more rows sit between $1,000 and $1,100. All 92 clients affected are Retail. Accounts fall to exactly 1000.0 (206 times from a higher value), stay there, and grow back from it. |
+| **Evidence** | F011 / F015 / F021: `1000.0` occurs 420× in snapshots and 386× in fees, while the next most common value occurs only twice. Every fee row at 1000.0 matches a snapshot at 1000.0 for the same client-month. **No AUM anywhere is below $1,000**, and 405 more rows sit between $1,000 and $1,100. All 92 clients affected are Retail. Accounts fall to exactly 1000.0 (206 times from a higher value), stay there, and grow back from it. |
 | **Dimension violated** | Accuracy/Plausibility |
 | **Decision** | **flag**: add `flag_aum_floor` (0/1) to both tables; keep the value |
 | **Justification** | This is a floor in the source system, not a stand-in for unknown values. True AUM is somewhere between $0 and $1,000 and can't be recovered from any other column, so replacing it would invent data. The value is real enough for totals ($420K across all floor rows is immaterial against a ~$4.4M mean AUM), but a flag lets performance analysis exclude these rows. |
@@ -184,7 +190,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `fact_transactions.txn_date` |
-| **Evidence** | F019: 40,649 Buy/Sell rows fall on non-trading days per `dim_date`. Across *all* types, 84,999 transactions (28.45%) of transactions are on weekends, almost exactly the 2/7 (28.57%) a uniform spread over all 7 days would give. Deposits and fees show the same rate as trades. |
+| **Evidence** | F022: 44,262 Buy/Sell rows fall on non-trading days: 40,649 on weekends and 3,613 on weekday NYSE holidays that `dim_date` wrongly marks as trading (see D-23; added after QA, so the original evidence cited only the 40,649 weekend trades). Across *all* types, 84,999 transactions (28.45%) of transactions are on weekends, almost exactly the 2/7 (28.57%) a uniform spread over all 7 days would give. Deposits and fees show the same rate as trades. |
 | **Dimension violated** | Accuracy/Plausibility (trades should settle on trading days) |
 | **Decision** | **leave as is**; document as a known limitation |
 | **Justification** | It's a uniform, systemic pattern, not a set of bad rows. It looks like a booking- or entry-date convention rather than a trade date. Moving dates to the next trading day would invent dates, and flagging 28% of the table adds noise without telling anyone which rows are wrong. |
@@ -195,7 +201,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `fact_transactions.security_id`, `shares`, `price` |
-| **Evidence** | F024–F026 / F030: 101,597 blanks in each column, all on Deposit (35,981), Withdrawal (29,850) and Advisory Fee (35,766). No Buy/Sell/Dividend row has a blank, and no cash row has a value (0 violations either way). |
+| **Evidence** | F029–F031 / F036: 101,597 blanks in each column, all on Deposit (35,981), Withdrawal (29,850) and Advisory Fee (35,766). No Buy/Sell/Dividend row has a blank, and no cash row has a value (0 violations either way). |
 | **Dimension violated** | None. Structural. |
 | **Decision** | **leave as is** (null) |
 | **Justification** | Cash movements have no security. Filling with 0 or a dummy security would create fake holdings and drag down average-price measures. Same conclusion as HW2. |
@@ -217,7 +223,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `dim_security.sector` (219 blank), `expense_ratio_bps` (281 blank) |
-| **Evidence** | F022 / F023 / F027: every sector blank is an ETF and every expense-ratio blank is a non-ETF, with 0 exceptions either way. |
+| **Evidence** | F027 / F028 / F032: every sector blank is an ETF and every expense-ratio blank is a non-ETF, with 0 exceptions either way. |
 | **Dimension violated** | None. Structural. |
 | **Decision** | **leave as is** |
 | **Justification** | ETFs span sectors, and single securities have no expense ratio. Filling either would be false. |
@@ -228,7 +234,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `dim_benchmark.benchmark_id = 6` (MSCI Emerging Markets) |
-| **Evidence** | F016 / F044: no snapshot or security references benchmark 6. |
+| **Evidence** | F019 / F050: no snapshot or security references benchmark 6. |
 | **Dimension violated** | None |
 | **Decision** | **leave as is** |
 | **Justification** | Dimensions often hold members with no facts yet, and removing it would break future references. |
@@ -239,7 +245,7 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | Field | Entry |
 |---|---|
 | **Table / column** | `dim_client.client_since` |
-| **Evidence** | F045: 1,549 clients started before 2020-01-01, the first date in `dim_date` (earliest 2015-01-01). No fact row predates its client's start date. |
+| **Evidence** | F051: 1,549 clients started before 2020-01-01, the first date in `dim_date` (earliest 2015-01-01). No fact row predates its client's start date. |
 | **Dimension violated** | None |
 | **Decision** | **leave as is** |
 | **Justification** | `client_since` is a descriptive attribute, not one of the 3 date-table relationships. `dim_date` covers the 2020–2024 fact period by design. |
@@ -267,6 +273,81 @@ The decisions add three flag columns: `flag_after_last_snapshot` (fact_transacti
 | **Justification** | A ratio near 3 suggests fees accrue monthly but are debited quarterly. That's a billing convention, not an error. Nothing should be changed until that hypothesis is tested. |
 | **Risk** | If Part D shows they don't reconcile at any grain, one of the two fee sources is wrong, and that becomes a reported limitation. |
 | **Outcome (Part D)** | **The hypothesis was rejected.** In `03_validate.py` R4, per client-quarter, debits match accruals within 1% in 0.53% of client-quarters against all fee types and 0.11% against `fee_type = Advisory` only. Month, year and lifetime grains also fail (best case 1.5%). Debits occur about 3.4 times a client-year on random days, and total $263.7M against $204.7M accrued (129%). The decision stays **leave as is**: there's no basis for choosing which source is right. It's reported as a limitation, and revenue should be measured from `fact_fees` (the source that reconciles to AUM × bps) until finance explains the debits. |
+
+---
+
+## Added after QA review: defects with no source to repair from
+
+A QA pass against the brief found that the audit had never tested holdings, price consistency, the
+market calendar or addresses. Five checks were added to `01_profile.py` (findings F016, F017, F018,
+F023, F024, F033), and the non-trading-day check (F022) now also counts weekday market holidays. Every resulting decision is **leave as is**, so no cleaning code was needed and
+the clean tables are unchanged. The entries are logged here so the limitations are on record.
+
+## D-21: Clients sell more shares than they bought
+
+| Field | Entry |
+|---|---|
+| **Table / column** | `fact_transactions.shares` (Buy / Sell running position per client and security) |
+| **Evidence** | F023: 43,010 of 59,755 Sells (72.0%) take the client's position in that security below zero; 22,713 of 38,813 client-security pairs go negative at some point. **This is not explained by holdings from before 2020.** Clients who joined in 2020 or later go short at the same rate (71.5% against 72.3%), and for 6,215 of their 15,056 client-security pairs the very first trade is a Sell. |
+| **Dimension violated** | Consistency (facts disagree with each other), Accuracy |
+| **Decision** | **leave as is**; document as a limitation |
+| **Justification** | Each transaction is internally consistent (shares × price = amount), but the trades weren't recorded against any holdings. The extract has no positions or opening-balance table, so the correct sequence or quantity can't be recovered. Changing shares or deleting Sells would invent or destroy cash flows. |
+| **Risk** | Any holdings or position report built by summing Buys minus Sells is wrong for most clients. Use `fact_portfolio_snapshot.aum` for account value, not reconstructed positions. If some clients transferred securities in (no transfer transactions exist), part of this would be legitimate. The 2020+ client evidence suggests that can't be the main cause. |
+
+## D-22: Dividends on securities the client never bought
+
+| Field | Entry |
+|---|---|
+| **Table / column** | `fact_transactions` (`txn_type = Dividend`) vs the client's Buy history |
+| **Evidence** | F024: 7,128 of 53,864 dividends (13.2%) pay on a security the client has no Buy for. For clients who joined in 2020 or later it is 2,734 of 20,938 (13.1%), so pre-2020 holdings don't explain it. |
+| **Dimension violated** | Consistency (cross-table), Accuracy |
+| **Decision** | **leave as is**; document |
+| **Justification** | Same root cause as D-21: income and trades aren't linked to holdings. The dividend cash was received according to the record, and nothing in the extract identifies the correct security. |
+| **Risk** | Income-by-security and yield analysis are unreliable. Total dividend income per client is still a usable cash figure. |
+
+## D-23: Market holidays marked as trading days
+
+| Field | Entry |
+|---|---|
+| **Table / column** | `dim_date.is_trading_day` |
+| **Evidence** | F017: all 47 weekday NYSE holidays in 2020–2024 are marked `is_trading_day = 1` (e.g. 2020-01-01, 2020-12-25, 2022-07-04, 2024-11-28). The column is simply "weekday = 1, weekend = 0". 3,613 Buy/Sell trades fall on these holidays (counted in D-09). The holidays were rebuilt from NYSE's standard rules, since the extract has no exchange calendar. |
+| **Dimension violated** | Accuracy |
+| **Decision** | **leave as is**; document that `is_trading_day` means "weekday" |
+| **Justification** | Fixing it needs an external calendar that isn't part of the extract, and rules rebuilt in code would miss one-off closures. The fix belongs in the source date dimension. The impact is small (47 of 1,827 days, 2.6%), and D-09 already makes trading-day analysis unreliable. |
+| **Risk** | A "trading days" measure built on `is_trading_day` overstates by about 9 days a year and misses the 3,613 holiday trades. The audit uses the rebuilt calendar instead. Low, since reporting is monthly. |
+
+## D-24: The same security trades at very different prices
+
+| Field | Entry |
+|---|---|
+| **Table / column** | `fact_transactions.price` (Buy / Sell) |
+| **Evidence** | F018: 36,280 of 143,311 trades (25.3%) are priced below half or above double their security's median trade price. The median security's highest trade price is 44× its lowest. |
+| **Dimension violated** | Accuracy/Plausibility |
+| **Decision** | **leave as is**; document |
+| **Justification** | Each price reconciles to its own amount and shares, so cash values are internally consistent. The extract has no market price series to repair against, and replacing prices would change amounts that already match. |
+| **Risk** | Price-based analysis (average cost, unrealised gain, price trends per security) is meaningless. Cash amounts and AUM are unaffected. |
+
+## D-25: Zip codes don't match the client's state
+
+| Field | Entry |
+|---|---|
+| **Table / column** | `dim_client.zip_code` vs `state` |
+| **Evidence** | F016: for 2,211 of 2,447 clients with a valid state code (90.4%), the zip's first digit belongs to a different USPS region than the state (e.g. client 1: PA with zip 75726, a Texas range). |
+| **Dimension violated** | Consistency, Accuracy |
+| **Decision** | **leave as is**; `state` is the geography of record |
+| **Justification** | Nothing says which field is right. The state is the field the business reports on, and it is now standardized (D-02). Changing zips would invent addresses. |
+| **Risk** | Zip-level maps or distance analysis would place clients in the wrong state. Documented: don't use `zip_code` for geography. |
+
+## D-26: Same name on different securities
+
+| Field | Entry |
+|---|---|
+| **Table / column** | `dim_security.name` |
+| **Evidence** | F033: 3 names appear twice (6 securities), each pair with different tickers. Two pairs also differ in asset class or ETF status (e.g. "Jones Inc Fund" as both a Fixed Income and an Alternative ETF). |
+| **Dimension violated** | None. Legitimate structure. |
+| **Decision** | **leave as is** |
+| **Justification** | Fund families commonly reuse a sponsor name across products. The keys and tickers are unique, and the attributes differ, so these aren't duplicates. Merging them would combine different investments. |
+| **Risk** | A report that groups by name instead of ticker would merge them. Report on `ticker`. |
 
 ---
 

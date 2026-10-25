@@ -86,8 +86,9 @@ kept unchanged; `1` = flagged, `0` = not flagged. Nothing is excluded by default
 
 ## Known limitations (not fixed, with reason)
 
-1. **Transaction dates fall on weekends.** 28.45% of transactions, including 40,649 Buy/Sell trades, are
-   dated on non-trading days, matching a uniform spread across all 7 days. This looks like a booking-date
+1. **Transaction dates fall on weekends.** 28.45% of transactions are dated on weekends, matching a
+   uniform spread across all 7 days. 44,241 Buy/Sell trades fall on non-trading days: 40,630 on
+   weekends and 3,611 on market holidays. This looks like a booking-date
    convention, and moving dates would invent them. Day-of-week and trading-day analysis is unreliable;
    monthly and yearly totals are fine (D-09).
 2. **AUM at the $1,000 floor is not the true balance.** It can't be recovered from any column. The amount
@@ -108,3 +109,17 @@ kept unchanged; `1` = flagged, `0` = not flagged. Nothing is excluded by default
    quarantine until the source system can supply the clients (D-07).
 9. **Benchmark 6 (MSCI Emerging Markets) has no references.** It was kept as a valid dimension member
    (D-17).
+10. **Trades aren't linked to holdings.** 42,975 of 59,720 Sells (72.0%) sell more shares than the
+    client had bought. This happens just as often for clients who joined after 2020, so pre-extract
+    holdings don't explain it. 7,090 of 53,826 dividends (13.2%) are on securities the client never
+    bought. **Don't build position or holdings reports from Buys minus Sells**; use
+    `fact_portfolio_snapshot.aum` for account value (D-21, D-22).
+11. **Trade prices aren't a market price series.** 36,294 of 143,218 trades (25.3%) are priced below half
+    or above double their security's median price. Cash amounts reconcile (shares × price = amount),
+    but average cost, unrealised gain and price trends are meaningless (D-24).
+12. **`is_trading_day` means "weekday".** All 47 weekday NYSE holidays in 2020–2024 are marked as
+    trading days (D-23).
+13. **Zip codes don't match states** for about 90% of clients. Use `state` for geography, not
+    `zip_code` (D-25).
+14. **Shared security names.** 3 names belong to two securities each, with different tickers and
+    attributes. Report on `ticker`, not `name` (D-26).

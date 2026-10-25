@@ -30,6 +30,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from pandas.tseries.holiday import (AbstractHolidayCalendar, GoodFriday, Holiday, USLaborDay,
+                                    USMartinLutherKingJr, USMemorialDay, USPresidentsDay,
+                                    USThanksgivingDay, nearest_workday, sunday_to_monday)
 
 HW_DIR = Path(__file__).resolve().parent.parent
 RAW_DIR = HW_DIR / "data" / "dirty"
@@ -47,6 +50,29 @@ US_STATES = {
     "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
 }
 ACCOUNT_TYPES = {"Taxable", "IRA", "Roth IRA", "Trust", "529"}
+
+# USPS: the first zip digit identifies a fixed group of states
+ZIP_FIRST_DIGIT = {s: d for d, states in {
+    "0": "CT MA ME NH NJ RI VT", "1": "DE NY PA", "2": "DC MD NC SC VA WV", "3": "AL FL GA MS TN",
+    "4": "IN KY MI OH", "5": "IA MN MT ND SD WI", "6": "IL KS MO NE", "7": "AR LA OK TX",
+    "8": "AZ CO ID NM NV UT WY", "9": "AK CA HI OR WA"}.items() for s in states.split()}
+
+
+class NYSEHolidayCalendar(AbstractHolidayCalendar):
+    """NYSE full-day closures under the standard rules (Juneteenth from 2022)."""
+    rules = [
+        Holiday("New Year's Day", month=1, day=1, observance=sunday_to_monday),
+        USMartinLutherKingJr, USPresidentsDay, GoodFriday, USMemorialDay,
+        Holiday("Juneteenth", month=6, day=19, start_date="2022-01-01", observance=nearest_workday),
+        Holiday("Independence Day", month=7, day=4, observance=nearest_workday),
+        USLaborDay, USThanksgivingDay,
+        Holiday("Christmas", month=12, day=25, observance=nearest_workday),
+    ]
+
+
+def nyse_holidays(dates):
+    """NYSE holiday dates spanning a date series (shared by the dim_date and transaction checks)."""
+    return NYSEHolidayCalendar().holidays(dates.min(), dates.max())
 
 # ── Table specifications ────────────────────────────────────────────────────
 # types:   int | decimal | date | bool | text   (expected type, not inferred)
@@ -562,6 +588,13 @@ def check_row_rules(t):
              (dt.dt.dayofweek >= 5) & (dd["is_trading_day"] == "1"))
     gaps = dt.sort_values().diff().dt.days.dropna()
     row_rule(dd, "dim_date", "date", "calendar gap (missing day)", "ERROR", gaps.reindex(dd.index) > 1)
+    # Market holidays: the extract has no exchange calendar, so NYSE's standard rules are
+    # rebuilt here (no special one-off closures fall in 2020-2024)
+    weekday_holidays = dt.isin(nyse_holidays(dt)) & (dt.dt.dayofweek < 5)
+    marked = weekday_holidays & (dd["is_trading_day"] == "1")
+    row_rule(dd, "dim_date", "is_trading_day", "NYSE market holiday marked as trading day", "WARN",
+             marked, detail=f"{marked.sum()} of {weekday_holidays.sum()} weekday NYSE holidays "
+                            f"{dt.min():%Y-%m-%d} to {dt.max():%Y-%m-%d} marked as trading")
 
     # Securities: ETFs carry an expense ratio and no sector; single stocks the reverse
     sec = t["dim_security"]
@@ -581,6 +614,15 @@ def check_row_rules(t):
         add_finding("2_single_table", "dim_security", "benchmark_id",
                     "asset_class maps to more than one benchmark", "INFO", int((multi > 1).sum()),
                     sec["asset_class"].nunique(), example=multi[multi > 1].to_dict())
+    same_name = sec["name"].duplicated(keep=False)
+    by_name = sec[same_name].groupby("name")
+    one_ticker_each = (by_name["ticker"].nunique() == by_name.size()).all()
+    differs = (by_name[["asset_class", "is_etf"]].nunique().max(axis=1) > 1).sum()
+    row_rule(sec, "dim_security", "name", "same name on different securities",
+             "INFO" if one_ticker_each else "WARN", same_name,
+             detail=f"{by_name.ngroups} names on {same_name.sum()} securities; tickers "
+                    f"{'all distinct' if one_ticker_each else 'REPEAT (possible duplicates)'}; "
+                    f"{differs} names also differ in asset class or ETF status")
 
     # Clients: tier should match initial AUM band (Retail < $500K <= HNW < $5M <= UHNW)
     cl = t["dim_client"]
@@ -591,6 +633,26 @@ def check_row_rules(t):
     row_rule(cl, "dim_client", "age", "client under 18 at client_since", "ERROR",
              to_number(cl["age"]) - (2024 - to_date(cl["client_since"]).dt.year) < 18,
              detail="Assumes age is as of the 2024 extract")
+    # The first zip digit is fixed by USPS region. Only well-formed zips with a valid state code
+    # are tested; malformed zips are the pattern check's job, not a region mismatch
+    expected_digit = cl["state"].map(ZIP_FIRST_DIGIT)
+    testable = expected_digit.notna() & cl["zip_code"].str.fullmatch(r"\d{5}")
+    row_rule(cl, "dim_client", "zip_code", "zip code region disagrees with state", "WARN",
+             testable & (cl["zip_code"].str[:1] != expected_digit),
+             detail=f"{testable.sum()} testable clients; USPS first-digit regions "
+                    "(e.g. PA/NY/DE = 1, FL = 3, CA = 9)")
+
+    # Transactions: a security trades in a plausible band around its own typical price.
+    # Keys normalised ('45.0' = '45'); non-positive prices are the range check's job, not dispersion
+    tx = t["fact_transactions"]
+    price = to_number(tx["price"])
+    trade = tx["txn_type"].isin({"Buy", "Sell"}) & (price > 0)
+    sec_key = tx["security_id"].str.replace(r"\.0+$", "", regex=True)
+    typical = price[trade].groupby(sec_key[trade]).transform("median")
+    ratio = (price[trade] / typical).reindex(tx.index)
+    row_rule(tx, "fact_transactions", "price", "trade price outside 0.5x-2x of security median",
+             "WARN", trade & ((ratio < 0.5) | (ratio > 2)),
+             detail="Same security traded at very different prices; prices not tied to a market series")
 
 
 # ── 4. Referential integrity ────────────────────────────────────────────────
@@ -725,13 +787,44 @@ def check_cross_table(t):
         add_finding("4_cross_table", "dim_client", "is_active",
                     "inactive client still has final-month snapshot", "WARN", len(early), len(cl))
 
-    # Trades (Buy/Sell) dated on non-trading days per dim_date
-    dd = t["dim_date"][["date", "is_trading_day"]]
-    m = tx[["txn_type", "txn_date"]].merge(dd, left_on="txn_date", right_on="date", how="left")
-    off = m["txn_type"].isin({"Buy", "Sell"}) & (m["is_trading_day"] == "0")
+    # Trades (Buy/Sell) on non-trading days: weekends AND weekday NYSE holidays. The rebuilt
+    # calendar is used, not dim_date.is_trading_day, which marks holidays as trading
+    txn_dt = to_date(tx["txn_date"])
+    trades = tx["txn_type"].isin({"Buy", "Sell"})
+    on_holiday = txn_dt.isin(nyse_holidays(txn_dt))
+    off = trades & txn_dt.notna() & ((txn_dt.dt.dayofweek >= 5) | on_holiday)
     if off.any():
         add_finding("4_cross_table", "fact_transactions", "txn_date",
-                    "Buy/Sell on a non-trading day (dim_date)", "WARN", off.sum(), len(tx))
+                    "Buy/Sell on a non-trading day (weekend or NYSE holiday)", "WARN", off.sum(), len(tx),
+                    detail=f"{(trades & on_holiday & (txn_dt.dt.dayofweek < 5)).sum()} on weekday "
+                           "holidays that dim_date marks as trading")
+
+    # Holdings: a client cannot sell more shares than bought, nor earn dividends on a
+    # security never bought (no opening-position table exists in the extract)
+    sec_tx = tx[trades].copy()
+    sec_tx["signed"] = to_number(sec_tx["shares"]).abs() * np.where(sec_tx["txn_type"] == "Buy", 1, -1)
+    sec_tx["txn_num"] = to_number(sec_tx["txn_id"])  # numeric tie-break: '10' must follow '9'
+    sec_tx = sec_tx.sort_values(["client_id", "security_id", "txn_date", "txn_num"])
+    by_pair = sec_tx.groupby(["client_id", "security_id"])
+    position = by_pair["signed"].cumsum()
+    short = (sec_tx["txn_type"] == "Sell") & (position < -1e-6)
+    if short.any():
+        pairs = sec_tx.loc[short, ["client_id", "security_id"]].drop_duplicates()
+        add_finding("4_cross_table", "fact_transactions", "shares",
+                    "sell takes position below zero (sold more than bought)", "WARN", short.sum(), len(tx),
+                    example=sec_tx.index[short][0],
+                    detail=f"{len(pairs):,} of {by_pair.ngroups:,} client-security pairs go negative; "
+                           "|shares| used so D-06 signs don't distort")
+    # "Never bought" rather than "held on the dividend date": positions are unreliable (above),
+    # so the test that doesn't depend on position arithmetic is used
+    pair_cols = ["client_id", "security_id"]
+    buys = tx.loc[tx["txn_type"] == "Buy", pair_cols].set_index(pair_cols).index
+    div = tx[tx["txn_type"] == "Dividend"]
+    no_buy = ~div.set_index(pair_cols).index.isin(buys)
+    if no_buy.any():
+        add_finding("4_cross_table", "fact_transactions", "security_id",
+                    "dividend on a security the client never bought", "WARN", no_buy.sum(), len(tx),
+                    example=div.index[no_buy][0])
 
     # Snapshot benchmark vs. dimension usage
     unused_bm = set(t["dim_benchmark"]["benchmark_id"]) - set(snap["benchmark_id"]) - \
