@@ -14,12 +14,15 @@ hw05/
 ├── powerbi_guide.md                ← Part D how-to (loading, relationships, date table)
 ├── star_design.md                  ← Parts A, B, C, E and F
 ├── scripts/
-│   └── 01_keys.py                  ← Part A: PK uniqueness, FK integrity, date join column
+│   ├── common.py                   ← shared paths, table loading, blank/type tests, check collector
+│   ├── 01_keys.py                  ← Part A: PK uniqueness, FK integrity, date join column
+│   └── 02_grain.py                 ← Part B: grain uniqueness for each fact table
 ├── data/
 │   └── clean/                      ← the 8 Wildcat Capital Clean tables (read-only)
 ├── reports/
 │   ├── keys_pk.csv                 ← Part A: one row per table
-│   └── keys_fk.csv                 ← Part A: one row per relationship
+│   ├── keys_fk.csv                 ← Part A: one row per relationship
+│   └── grain.csv                   ← Part B: one row per candidate grain tested
 └── powerbi/
     ├── hw05.pbix                   ← Part D: saved model
     └── model_view.png              ← Part D: full Model view screenshot
@@ -46,12 +49,20 @@ From the repository root, with the course virtual environment active:
 
 ```
 python hw05/scripts/01_keys.py
+python hw05/scripts/02_grain.py
 ```
 
 `01_keys.py` (a few seconds) proves every primary key and foreign key in `star_design.md` Part A. It
 writes `reports/keys_pk.csv` (8 tables) and `reports/keys_fk.csv` (13 relationships), and stops with a
 `KeyCheckError` if any check fails. It imports `check_referential_integrity()` from
 `hw04/scripts/03_validate.py`, so the `hw04/` folder must be present.
+
+`02_grain.py` (a few seconds) proves the grain of each fact table in `star_design.md` Part B. It tests
+the declared grain and coarser alternatives, so the report shows both why the grain holds and why a
+coarser one doesn't. The figures quoted in Part B are pinned in the script. It writes `reports/grain.csv`
+and stops with a `GrainCheckError` if any check fails or a quoted figure changes.
+
+Both scripts share the helpers in `common.py`, so Parts A and B treat blanks and types the same way.
 
 ## Process Note: How AI Was Used
 
@@ -72,6 +83,15 @@ writes `reports/keys_pk.csv` (8 tables) and `reports/keys_fk.csv` (13 relationsh
 | `01_keys.py` | PK and FK lists duplicate HW4's `PKS` and `RELATIONSHIPS` and could drift apart | **Kept by choice:** the lists are the Part A answer, so they stay written out here. A new check 0 fails if they differ from HW4's |
 | `01_keys.py` | Blank-by-type counts scanned the table once per `txn_type` | One `groupby().agg(["sum", "size"])` |
 | `01_keys.py` | **Outcome** | 9 of 10 fixed, 1 kept with an agreement check. Results on the clean data are unchanged (8 PKs, 13 FKs, all pass); 4 fault-injection tests confirm the new checks catch problems |
+| `02_grain.py` | The fee-type claim in Part B ("changes for every client") was only printed, never checked | Check added (0 of 2,500 clients have a single fee type), and the Part B wording now matches exactly what is tested |
+| `02_grain.py` | Figures quoted in `star_design.md` (1,238 rows, 616 groups, 7,350 months, …) were not checked, though the text said the script would fail if a result changed | `EXPECTED` pins all 7 quoted figures; the script fails if any differs |
+| `02_grain.py` | The fees alternative `fee_date + fee_type` could never fail, so it showed nothing about the declared grain | Replaced with coarser candidates `client_id + year` and `client_id` (same as snapshots) |
+| `02_grain.py` | Uniqueness compared numbers as text, so `67311.3` and `67311.30` counted as different and a real duplicate could slip through | `shares`, `price`, `amount` are converted to numbers first. Fault test: a duplicate with amount `…330` now fails |
+| `02_grain.py` | Gap check compared month span with row count, so a duplicated month and a missing month cancel out | Compares span with distinct months. Fault test: duplicate Feb + missing Mar now fails |
+| `02_grain.py` | Advisor-per-client was checked for snapshots but not fees | Added for `fact_fees`. Fault test: an advisor change fails |
+| `02_grain.py` | Helpers (`is_blank`, check collector) copied from `01_keys.py` could drift | Moved to `common.py`, used by both scripts; Part A reports byte-identical after the change |
+| `02_grain.py` | `snapshot_date` parsed twice; date format rule in three places | Parsed once per table; one `parse_iso_date()` in `common.py` |
+| `02_grain.py` | **Outcome** | All 8 fixed. Grains unchanged (3 proven, now 11 candidates tested); 3 fault-injection tests confirm the new checks |
 
 ## Status
 

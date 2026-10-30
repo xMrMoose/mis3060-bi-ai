@@ -31,6 +31,18 @@ MIS3060 HW5 — Jonah Karst
 
 ## Part B — Grain
 
+| Fact table | Grain | Unique on |
+|---|---|---|
+| fact_fees | One row represents one fee charged to one client for one month. The type of fee (Advisory, Management, Custodial or Performance) is recorded on the row. | `client_id` + `fee_date` |
+| fact_portfolio_snapshot | One row represents one client's account position (AUM, returns and cash share) for one month. | `client_id` + `snapshot_date` |
+| fact_transactions | One row represents one transaction on one client's account on one day: a trade, a dividend, or a cash movement. | `txn_id` only |
+
+**How the grains were proven.** `scripts/02_grain.py` tests each declared grain alongside coarser alternatives (client alone, client + year). For transactions, it also tests combinations of business columns. Every figure quoted below is pinned in the script, so it stops with an error if the data changes. Detail is in `reports/grain.csv`.
+
+- **fact_fees:** `client_id` + `fee_date` has 0 duplicates in 122,197 rows, and every `fee_date` is the 1st of a month. So a client is charged at most one fee in a month. `fee_type` isn't needed to make a row unique, because client + month already is. It also isn't fixed per client: all 2,500 clients were charged more than one type over their history. So it describes the charge rather than being part of the grain. Not every month has a fee: 7,350 client-months have a snapshot but no fee. Every fee month does have a snapshot.
+- **fact_portfolio_snapshot:** `client_id` + `snapshot_date` has 0 duplicates in 129,547 rows, and every date is the 1st of a month. Each client has exactly one `advisor_id`, `benchmark_id` and `account_type`, so there is one account per client and "client-month" is the same as "account-month". All 2,500 clients have an unbroken monthly series, with no missing months between their first and last snapshot.
+- **fact_transactions:** no combination of business columns is a key, so the grain is the single event and only `txn_id` identifies it. Even client + date + type + security repeats on 1,238 rows (616 groups, the largest with 3 rows). For example, client 1 made two Deposits on 2024-09-25 ($94,893.52 and $26,587.27). These are separate events, not duplicate rows: no repeated group shares an amount, and no two rows match on every business column.
+
 ## Part C — Measures
 
 ### Fact measures

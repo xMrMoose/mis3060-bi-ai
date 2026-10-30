@@ -24,17 +24,13 @@
 #   keys_fk.csv   one row per relationship (13)
 
 import importlib.util
-from pathlib import Path
 
 import pandas as pd
 
-HW_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = HW_DIR / "data" / "clean"
-REPORTS_DIR = HW_DIR / "reports"
-HW04_VALIDATE = HW_DIR.parent / "hw04" / "scripts" / "03_validate.py"
+from common import (HW_DIR, REPORTS_DIR, Checks, is_blank, is_iso_date, is_whole_number,
+                    load_tables, parse_iso_date)
 
-TABLES = ["dim_advisor", "dim_benchmark", "dim_client", "dim_date", "dim_security",
-          "fact_fees", "fact_portfolio_snapshot", "fact_transactions"]
+HW04_VALIDATE = HW_DIR.parent / "hw04" / "scripts" / "03_validate.py"
 
 PRIMARY_KEYS = {
     "dim_advisor": "advisor_id",
@@ -67,10 +63,6 @@ FOREIGN_KEYS = [
 CASH_TXN_TYPES = {"Deposit", "Withdrawal", "Advisory Fee"}
 SECURITY_TXN_TYPES = {"Buy", "Sell", "Dividend"}
 
-# Canonical whole number: ASCII digits, no sign, no leading zero, fits Int64.
-# '07' would pass a plain \d+ test but collide with '7' once Power BI casts it.
-WHOLE_NUMBER = r"0|[1-9][0-9]{0,17}"
-
 
 class KeyCheckError(Exception):
     """A key check failed; the Part A table would be wrong."""
@@ -87,29 +79,11 @@ def load_hw04():
     return module
 
 
-def is_blank(series):
-    return series.str.strip().eq("")
-
-
-def is_whole_number(series):
-    return bool(series.str.fullmatch(WHOLE_NUMBER).all())
-
-
-def is_iso_date(series):
-    return bool(pd.to_datetime(series, format="%Y-%m-%d", errors="coerce").notna().all())
-
-
 def main():
     hw04 = load_hw04()
     check_referential_integrity = hw04.check_referential_integrity
-    t = {name: pd.read_csv(DATA_DIR / f"{name}.csv", dtype=str, keep_default_na=False)
-         for name in TABLES}
-    failures = []
-
-    def check(condition, message):
-        if not condition:
-            failures.append(message)
-            print(f"   FAIL: {message}")
+    t = load_tables()
+    check = Checks(KeyCheckError)
 
     # 0. This design must agree with the keys HW4 validated
     check(PRIMARY_KEYS == hw04.PKS, "PRIMARY_KEYS differs from HW4 PKS")
@@ -203,7 +177,7 @@ def main():
     print(f"   dim_benchmark.ticker_proxy in dim_security[ticker]: {proxy_hits} of {len(proxy)}")
     check(proxy_hits == 0, "ticker_proxy matches dim_security tickers; reconsider it as a FK")
     snap = t["fact_portfolio_snapshot"]
-    snap_dates = pd.to_datetime(snap["snapshot_date"], format="%Y-%m-%d", errors="coerce")
+    snap_dates = parse_iso_date(snap["snapshot_date"])
     parts_ok = (pd.to_numeric(snap["year"], errors="coerce").eq(snap_dates.dt.year).all()
                 and pd.to_numeric(snap["month"], errors="coerce").eq(snap_dates.dt.month).all())
     print(f"   fact_portfolio_snapshot.year/month are parts of snapshot_date: {parts_ok}")
@@ -213,8 +187,7 @@ def main():
     REPORTS_DIR.mkdir(exist_ok=True)
     pk_df.to_csv(REPORTS_DIR / "keys_pk.csv", index=False)
     fk_df.to_csv(REPORTS_DIR / "keys_fk.csv", index=False)
-    if failures:
-        raise KeyCheckError(f"{len(failures)} check(s) failed: " + "; ".join(failures))
+    check.raise_if_failed()
     print(f"\nAll checks passed: {len(pk_df)} primary keys, {len(fk_df)} foreign keys. "
           f"Wrote {REPORTS_DIR.name}/keys_pk.csv and {REPORTS_DIR.name}/keys_fk.csv")
 

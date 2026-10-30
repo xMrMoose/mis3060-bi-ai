@@ -1,0 +1,12 @@
+table,candidate,declared_grain,rows,duplicate_rows,blank_key_rows,unique,expected_unique,pass
+fact_fees,client_id + fee_date,True,122197,0,0,True,True,True
+fact_fees,client_id + year,False,122197,110891,0,False,False,True
+fact_fees,client_id,False,122197,119697,0,False,False,True
+fact_portfolio_snapshot,client_id + snapshot_date,True,129547,0,0,True,True,True
+fact_portfolio_snapshot,client_id + year,False,129547,118231,0,False,False,True
+fact_portfolio_snapshot,client_id,False,129547,127047,0,False,False,True
+fact_transactions,txn_id,True,298572,0,0,True,True,True
+fact_transactions,client_id + txn_date,False,298572,12804,0,False,False,True
+fact_transactions,client_id + txn_date + txn_type,False,298572,2503,0,False,False,True
+fact_transactions,client_id + txn_date + txn_type + security_id,False,298572,622,101528,False,False,True
+fact_transactions,all business columns,False,298572,0,101528,True,True,True
