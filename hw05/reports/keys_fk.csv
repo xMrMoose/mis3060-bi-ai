@@ -1,0 +1,14 @@
+table,foreign_key,target,rows,blank_rows,matched_rows,orphan_rows,match_rate,key_type,pass
+dim_client,advisor_id,dim_advisor[advisor_id],2500,0,2500,0,1.0,Whole Number,True
+dim_security,benchmark_id,dim_benchmark[benchmark_id],500,0,500,0,1.0,Whole Number,True
+fact_fees,client_id,dim_client[client_id],122197,0,122197,0,1.0,Whole Number,True
+fact_fees,advisor_id,dim_advisor[advisor_id],122197,0,122197,0,1.0,Whole Number,True
+fact_fees,fee_date,dim_date[date],122197,0,122197,0,1.0,Date,True
+fact_portfolio_snapshot,client_id,dim_client[client_id],129547,0,129547,0,1.0,Whole Number,True
+fact_portfolio_snapshot,advisor_id,dim_advisor[advisor_id],129547,0,129547,0,1.0,Whole Number,True
+fact_portfolio_snapshot,benchmark_id,dim_benchmark[benchmark_id],129547,0,129547,0,1.0,Whole Number,True
+fact_portfolio_snapshot,snapshot_date,dim_date[date],129547,0,129547,0,1.0,Date,True
+fact_transactions,client_id,dim_client[client_id],298572,0,298572,0,1.0,Whole Number,True
+fact_transactions,advisor_id,dim_advisor[advisor_id],298572,0,298572,0,1.0,Whole Number,True
+fact_transactions,security_id,dim_security[security_id],298572,101528,197044,0,1.0,Whole Number,True
+fact_transactions,txn_date,dim_date[date],298572,0,298572,0,1.0,Date,True
