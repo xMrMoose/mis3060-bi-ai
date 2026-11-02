@@ -125,7 +125,33 @@ Built by hand in Power BI Desktop (not Apporto), following `powerbi_guide.md`, f
 
 ## Process Note: How AI Was Used
 
-*To be completed.*
+The brief asks for scripts to be drafted in **Claude Desktop**, run in VS Code, and reviewed by
+**Claude Code** before each commit. As in HW4, this assignment departed from that split: the scripts and
+`star_design.md` were **drafted in Claude Code** (inside VS Code), from my instructions and decisions.
+The **Power BI model (Part D) I built myself** in Power BI Desktop, following `powerbi_guide.md`. Claude
+Code walked through each step with me and checked my screenshots and the exported relationship list,
+but didn't create the `.pbix`.
+
+Separation between drafting and checking came from four things:
+
+- **A separate review pass before every commit.** Claude Code's `/code-review` ran as an independent
+  review agent on each script. Its findings and my responses are in the table below: 47 findings
+  across 5 scripts, 45 fixed, 1 kept with an agreement check, and 1 reclassification decided by me.
+- **Script output as the source of truth.** Every figure in `star_design.md` is pinned in the script
+  that computes it, so a changed number fails the script instead of leaving the write-up stale.
+  Fault-injection tests (deliberately broken copies of the data) confirmed the checks catch problems.
+- **The model checked against Power BI itself.** `04_relationships.py` compares the design with the
+  relationships Power BI exports (`INFO.VIEW.RELATIONSHIPS()`), not with a hand-typed copy.
+- **My own decisions on the judgement calls.** I chose the semi-additive classification of transaction
+  `amount` (Part C) and the inactive `dim_security → dim_benchmark` relationship (Part E (d)), after
+  reviewing the evidence.
+
+**Corrections made along the way:**
+- Claude Code's first Power Query type table missed `aum_target_mm`, and I caught it.
+- The review of `05_questions.py` found that the Part D advisor slicer on `last_name` selects both
+  Johnsons, so Part E (b) was corrected.
+- A per-advisor ratio was written before it was computed, and was replaced with the computed figure
+  before commit.
 
 ## Claude Code Review Findings
 
@@ -184,9 +210,9 @@ Built by hand in Power BI Desktop (not Apporto), following `powerbi_guide.md`, f
 
 ## Status
 
-- [ ] Part A — Keys
-- [ ] Part B — Grain
-- [ ] Part C — Measures
-- [ ] Part D — Power BI model
-- [ ] Part E — Relationships and design questions
-- [ ] Part F — Reflection
+- [x] Part A — Keys
+- [x] Part B — Grain
+- [x] Part C — Measures
+- [x] Part D — Power BI model
+- [x] Part E — Relationships and design questions
+- [x] Part F — Reflection
