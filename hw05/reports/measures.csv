@@ -1,0 +1,48 @@
+group,table,column,role,rule
+fact,fact_fees,fee_id,key,count rows; never sum
+fact,fact_fees,client_id,key,foreign key; never sum
+fact,fact_fees,advisor_id,key,foreign key; never sum
+fact,fact_fees,aum_basis,semi-additive,sum across clients within one month; across months use the last or average month
+fact,fact_fees,bps_charged,non-additive,"never sum; effective rate = SUM(amount) x 12 x 10,000 / SUM(aum_basis)"
+fact,fact_fees,amount,additive,"sum across clients, advisors, fee types and months"
+fact,fact_portfolio_snapshot,snapshot_id,key,count rows; never sum
+fact,fact_portfolio_snapshot,client_id,key,foreign key; never sum
+fact,fact_portfolio_snapshot,advisor_id,key,foreign key; never sum
+fact,fact_portfolio_snapshot,benchmark_id,key,foreign key; never sum
+fact,fact_portfolio_snapshot,year,date part,"part of snapshot_date; group by, never sum"
+fact,fact_portfolio_snapshot,month,date part,"part of snapshot_date; group by, never sum"
+fact,fact_portfolio_snapshot,aum,semi-additive,sum across clients within one month; across months use the last or average month
+fact,fact_portfolio_snapshot,return_ytd,non-additive,"never sum; latest month of the year, AUM-weighted across clients"
+fact,fact_portfolio_snapshot,benchmark_return_ytd,non-additive,"never sum; one value per benchmark-month, repeated on every client"
+fact,fact_portfolio_snapshot,active_alpha_ytd,non-additive,"never sum; = return_ytd - benchmark_return_ytd, aggregate those first"
+fact,fact_portfolio_snapshot,cash_pct,non-additive,never sum; AUM-weighted: SUM(aum x cash_pct) / SUM(aum)
+fact,fact_portfolio_snapshot,is_return_suspect,flag,"0/1 flag; count flagged rows, never treat as a measure"
+fact,fact_transactions,txn_id,key,count rows; never sum
+fact,fact_transactions,client_id,key,foreign key; never sum
+fact,fact_transactions,advisor_id,key,foreign key; never sum
+fact,fact_transactions,security_id,key,foreign key; never sum
+fact,fact_transactions,shares,semi-additive,sum only within one security and one txn_type; never across securities
+fact,fact_transactions,price,non-additive,never sum; average trade price = SUM(amount) / SUM(shares) over Buy/Sell of one security
+fact,fact_transactions,amount,semi-additive,"sum across clients, advisors, securities and dates within one txn_type; never across txn_types unsigned"
+fact,fact_transactions,is_post_departure_txn,flag,"0/1 flag; count flagged rows, never treat as a measure"
+dimension,dim_advisor,advisor_id,key,primary key
+dimension,dim_advisor,years_experience,attribute,"describes the advisor; average or band, never sum"
+dimension,dim_advisor,aum_target_mm,attribute,one target per advisor; summing through a fact repeats it per row
+dimension,dim_benchmark,benchmark_id,key,primary key
+dimension,dim_client,client_id,key,primary key
+dimension,dim_client,age,attribute,"describes the client; average or band, never sum"
+dimension,dim_client,zip_code,attribute,"a code, not a number; load as Text"
+dimension,dim_client,initial_aum,attribute,"AUM at onboarding, not a current balance; summing through a fact repeats it"
+dimension,dim_client,advisor_id,key,foreign key
+dimension,dim_date,date_id,key,primary key
+dimension,dim_date,year,date part,"group by, never sum"
+dimension,dim_date,quarter,date part,"group by, never sum"
+dimension,dim_date,month,date part,"group by, never sum"
+dimension,dim_date,week_of_year,date part,"group by, never sum"
+dimension,dim_date,is_month_end,flag,"filter, never sum"
+dimension,dim_date,is_quarter_end,flag,"filter, never sum"
+dimension,dim_date,is_year_end,flag,"filter, never sum"
+dimension,dim_date,is_trading_day,flag,"filter, never sum"
+dimension,dim_security,security_id,key,primary key
+dimension,dim_security,benchmark_id,key,foreign key
+dimension,dim_security,expense_ratio_bps,attribute,"a rate; average weighted by holdings, never sum"

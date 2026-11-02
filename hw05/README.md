@@ -16,13 +16,15 @@ hw05/
 ├── scripts/
 │   ├── common.py                   ← shared paths, table loading, blank/type tests, check collector
 │   ├── 01_keys.py                  ← Part A: PK uniqueness, FK integrity, date join column
-│   └── 02_grain.py                 ← Part B: grain uniqueness for each fact table
+│   ├── 02_grain.py                 ← Part B: grain uniqueness for each fact table
+│   └── 03_measures.py              ← Part C: classify every numeric column, with evidence
 ├── data/
 │   └── clean/                      ← the 8 Wildcat Capital Clean tables (read-only)
 ├── reports/
 │   ├── keys_pk.csv                 ← Part A: one row per table
 │   ├── keys_fk.csv                 ← Part A: one row per relationship
-│   └── grain.csv                   ← Part B: one row per candidate grain tested
+│   ├── grain.csv                   ← Part B: one row per candidate grain tested
+│   └── measures.csv                ← Part C: one row per numeric column (47)
 └── powerbi/
     ├── hw05.pbix                   ← Part D: saved model
     └── model_view.png              ← Part D: full Model view screenshot
@@ -50,6 +52,7 @@ From the repository root, with the course virtual environment active:
 ```
 python hw05/scripts/01_keys.py
 python hw05/scripts/02_grain.py
+python hw05/scripts/03_measures.py
 ```
 
 `01_keys.py` (a few seconds) proves every primary key and foreign key in `star_design.md` Part A. It
@@ -62,7 +65,13 @@ the declared grain and coarser alternatives, so the report shows both why the gr
 coarser one doesn't. The figures quoted in Part B are pinned in the script. It writes `reports/grain.csv`
 and stops with a `GrainCheckError` if any check fails or a quoted figure changes.
 
-Both scripts share the helpers in `common.py`, so Parts A and B treat blanks and types the same way.
+`03_measures.py` (a few seconds) checks the `star_design.md` Part C classification. It finds every
+numeric column in the 8 tables and fails if one is left unclassified. It then tests the arithmetic each
+class depends on, for example fee = AUM × bps / 10,000 / 12, and that summing AUM across months
+inflates it 44.5×. It writes `reports/measures.csv` and stops with a `MeasureCheckError` if any check
+fails or a quoted figure changes.
+
+All three scripts share the helpers in `common.py`, so Parts A and B treat blanks and types the same way.
 
 ## Process Note: How AI Was Used
 
@@ -92,6 +101,17 @@ Both scripts share the helpers in `common.py`, so Parts A and B treat blanks and
 | `02_grain.py` | Helpers (`is_blank`, check collector) copied from `01_keys.py` could drift | Moved to `common.py`, used by both scripts; Part A reports byte-identical after the change |
 | `02_grain.py` | `snapshot_date` parsed twice; date format rule in three places | Parsed once per table; one `parse_iso_date()` in `common.py` |
 | `02_grain.py` | **Outcome** | All 8 fixed. Grains unchanged (3 proven, now 11 candidates tested); 3 fault-injection tests confirm the new checks |
+| `03_measures.py` | Transaction `amount` was classed Additive, yet it can't be summed across `txn_type`, which breaks Part C's own definition | **My decision:** reclassified as semi-additive (additive across clients, advisors, securities and dates, not across `txn_type`; fully additive once signed by type) |
+| `03_measures.py` | Part C says the fee identity holds "to within half a cent", but the script enforced $0.01, and the gap was skipped in the pinned-figure loop | `TOLERANCES` dict: fee and trade identities pinned at half a cent; alpha and `aum_basis` tolerances in the same place |
+| `03_measures.py` | "60 months", 122,197 fees, the `cash_pct` range and the 47-column count were quoted but not pinned | All added to `EXPECTED` (17 pinned figures) |
+| `03_measures.py` | `aum_basis` = `aum` was compared as text, so `125000.0` vs `125000` would fail falsely | Numeric comparison with a tolerance. Fault test: trailing zeros now pass |
+| `03_measures.py` | Gap checks used `.max()` and `.mean()`, which skip NaN, so a blank value passed "on every row" claims | Every identity requires no NaN, and classified columns must be filled unless listed in `ALLOWED_BLANK`. Fault test: a blank `active_alpha_ytd` fails |
+| `03_measures.py` | The "resets each January" evidence (mean January < mean December) can't tell year-to-date from since-inception | New test: month-on-month change for each client is 6.4× larger going into January than in other months |
+| `03_measures.py` | The "real balance" month was hard-coded as `2024-12-01` | Uses the latest `snapshot_date`, which is also pinned |
+| `03_measures.py` | Part C's average-price rule didn't exclude Dividends, contradicting the `shares` rule | Rule is now Buy/Sell only, in both the script and Part C |
+| `03_measures.py` | Coverage ignored a numeric column with one stray text value | A column with ≥95% numeric values counts as numeric and must be classified and fully numeric. Fault test: a new column with one `n/a` fails |
+| `03_measures.py` | Tolerances were scattered as magic numbers, and the same columns were parsed repeatedly | One `TOLERANCES` dict; each fact table's numeric columns parsed once |
+| `03_measures.py` | **Outcome** | 9 fixed, 1 classification changed by my decision. 47 columns classified; fact measures 1 additive / 4 semi-additive / 6 non-additive; 3 fault-injection tests confirm the new checks |
 
 ## Status
 
