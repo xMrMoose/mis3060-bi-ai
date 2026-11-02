@@ -30,7 +30,8 @@ hw05/
 │   └── relationships.csv           ← Part E: the 13 relationships as built, active flag, notes
 └── powerbi/
     ├── hw05.pbix                   ← Part D: saved model (21.8 MB, under GitHub's 100 MB limit)
-    └── model_view.png              ← Part D: full Model view screenshot
+    ├── model_view.png              ← Part D: full Model view screenshot
+    └── relationships_export.csv    ← Power BI's own relationship list (INFO.VIEW.RELATIONSHIPS), read by 04
 ```
 
 ## Source Data (`data/clean/`)
@@ -99,7 +100,7 @@ with a `QuestionCheckError` if one changes.
 
 Redo the export whenever a relationship changes in the model.
 
-All four scripts share the helpers in `common.py`, so Parts A and B treat blanks and types the same way.
+All five scripts share the helpers in `common.py`, so every part treats blanks, types and dates the same way.
 
 ## Power BI Model (Part D)
 
@@ -121,7 +122,8 @@ Built by hand in Power BI Desktop (not Apporto), following `powerbi_guide.md`, f
   additive and semi-additive measures default to Sum.
 - **Checks page:** row-count card (Count of each primary key), with all 8 tables matching the brief.
   A ticker × transaction amount table shows the expected `(Blank)` row for the 101,528 cash
-  transactions. An advisor slicer filters all three facts.
+  transactions. An advisor slicer filters all three facts. It is on `last_name`, which two advisors
+  share (Danielle and Robert Johnson), so "Johnson" selects both (`star_design.md` Part E (b)).
 
 ## Process Note: How AI Was Used
 

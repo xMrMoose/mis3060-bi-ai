@@ -33,7 +33,7 @@ MIS3060 HW5 — Jonah Karst
 
 | Fact table | Grain | Unique on |
 |---|---|---|
-| fact_fees | One row represents one fee charged to one client for one month. The type of fee (Advisory, Management, Custodial or Performance) is recorded on the row. | `client_id` + `fee_date` |
+| fact_fees | One row represents one fee (Advisory, Management, Custodial or Performance) charged to one client for one month. | `client_id` + `fee_date` |
 | fact_portfolio_snapshot | One row represents one client's account position (AUM, returns and cash share) for one month. | `client_id` + `snapshot_date` |
 | fact_transactions | One row represents one transaction on one client's account on one day: a trade, a dividend, or a cash movement. | `txn_id` only |
 
@@ -102,6 +102,8 @@ A dimension row is repeated across every fact row that joins to it. Summing a di
 
 ### The model built in Part D
 
+![Model view of hw05.pbix: three fact tables with the five dimensions around them; the two dashed lines are the inactive relationships](powerbi/model_view.png)
+
 All 13 foreign keys from Part A became relationships, so none was omitted. Every relationship is **many-to-one with a single cross-filter direction**: the dimension filters the fact, never the reverse. 11 are active and 2 are inactive.
 
 | # | From (many) | To (one) | Active | Why |
@@ -132,9 +134,9 @@ In Power BI, these rows appear as a `(Blank)` member under `dim_security`. The P
 - **It records the right advisor:** the `advisor_id` on a fee, snapshot or transaction records who handled that event. The `advisor_id` on the client is only the client's *current* advisor. If a client is ever reassigned, the direct path keeps history right: past fees stay with the advisor who earned them. Through `dim_client`, they would move to the new advisor.
 - **Today, both give the same numbers:** the fact's `advisor_id` equals the client's advisor on all 550,316 fact rows, and rows per advisor are identical through either path. So the choice protects future data rather than changing current results.
 
-**Trade-off:** a slicer on `dim_advisor` doesn't filter the `dim_client` table itself. In the Part D check, an advisor slicer filtered all three fact counts, but the count of `dim_client` stayed at 2,500. For one advisor, Danielle Johnson (advisor 1), the facts filter to 5,008 fees, 5,304 snapshots and 12,661 transactions, while the client card still shows 2,500 rather than her 107 clients.
+**Trade-off:** a slicer on `dim_advisor` doesn't filter the `dim_client` table itself. In the Part D check, an advisor slicer filtered all three fact counts, but the count of `dim_client` stayed at 2,500. For one advisor, Danielle Johnson (advisor 1), the facts filter to 5,008 fees, 5,304 snapshots and 12,661 transactions, while the client card still shows 2,500 rather than her 107 clients. "Clients per advisor" therefore has to be counted from a fact (distinct `client_id` in snapshots). The alternative is to switch on #13 in a DAX measure with `USERELATIONSHIP`, which is why I kept it as an inactive relationship instead of deleting it.
 
-The Part D slicer used `last_name`, and two advisors share it: Danielle Johnson (advisor 1) and Robert Johnson (advisor 5). Selecting "Johnson" therefore selects both, and shows 9,408 fees, 9,971 snapshots and 23,862 transactions. An advisor slicer should use `advisor_id` or first and last name together; no two advisors share a full name. "Clients per advisor" therefore has to be counted from a fact (distinct `client_id` in snapshots). The alternative is to switch on #13 in a DAX measure with `USERELATIONSHIP`, which is why I kept it as an inactive relationship instead of deleting it.
+**Note on the slicer field:** the Part D slicer used `last_name`, and two advisors share it: Danielle Johnson (advisor 1) and Robert Johnson (advisor 5). Selecting "Johnson" therefore selects both, and shows 9,408 fees, 9,971 snapshots and 23,862 transactions. An advisor slicer should use `advisor_id` or first and last name together; no two advisors share a full name.
 
 ### (c) Joining on `dim_date[date]` vs `dim_date[date_id]`
 
