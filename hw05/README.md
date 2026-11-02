@@ -26,7 +26,7 @@ hw05/
 │   ├── grain.csv                   ← Part B: one row per candidate grain tested
 │   └── measures.csv                ← Part C: one row per numeric column (47)
 └── powerbi/
-    ├── hw05.pbix                   ← Part D: saved model
+    ├── hw05.pbix                   ← Part D: saved model (21.8 MB, under GitHub's 100 MB limit)
     └── model_view.png              ← Part D: full Model view screenshot
 ```
 
@@ -72,6 +72,24 @@ inflates it 44.5×. It writes `reports/measures.csv` and stops with a `MeasureCh
 fails or a quoted figure changes.
 
 All three scripts share the helpers in `common.py`, so Parts A and B treat blanks and types the same way.
+
+## Power BI Model (Part D)
+
+Built by hand in Power BI Desktop (not Apporto), following `powerbi_guide.md`, from the 8 files in
+`data/clean/`. Open `powerbi/hw05.pbix` in Power BI Desktop.
+
+- **Types:** every column set in Power Query: `*_id` keys Whole Number (`security_id` blank on cash
+  rows), dates Date, amounts, AUM, rates and returns Decimal Number, `zip_code` and `account_type`
+  Text, `is_active` and `is_etf` True/False, 0/1 flags Whole Number.
+- **Relationships:** 13 relationships, all many-to-one with single-direction filtering. 12 are active.
+  `dim_client → dim_advisor` is inactive, because the facts reach `dim_advisor` directly
+  (`star_design.md` Part E).
+- **Dates:** fact dates join `dim_date[date]`, and `dim_date` is marked as the date table on `date`.
+- **Summarize by:** set to None on the 41 numeric columns that Part C says never to sum. Only the 5
+  additive and semi-additive measures default to Sum.
+- **Checks page:** row-count card (Count of each primary key), with all 8 tables matching the brief.
+  A ticker × transaction amount table shows the expected `(Blank)` row for the 101,528 cash
+  transactions. An advisor slicer filters all three facts.
 
 ## Process Note: How AI Was Used
 
