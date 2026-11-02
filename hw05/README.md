@@ -18,7 +18,8 @@ hw05/
 │   ├── 01_keys.py                  ← Part A: PK uniqueness, FK integrity, date join column
 │   ├── 02_grain.py                 ← Part B: grain uniqueness for each fact table
 │   ├── 03_measures.py              ← Part C: classify every numeric column, with evidence
-│   └── 04_relationships.py         ← Part E: model paths, conformed dimensions, (a)–(d) figures
+│   ├── 04_relationships.py         ← Part E: model paths, conformed dimensions, (a)–(d) figures
+│   └── 05_questions.py             ← Part F: each manager question, single visual vs correct answer
 ├── data/
 │   └── clean/                      ← the 8 Wildcat Capital Clean tables (read-only)
 ├── reports/
@@ -56,6 +57,7 @@ python hw05/scripts/01_keys.py
 python hw05/scripts/02_grain.py
 python hw05/scripts/03_measures.py
 python hw05/scripts/04_relationships.py
+python hw05/scripts/05_questions.py
 ```
 
 `01_keys.py` (a few seconds) proves every primary key and foreign key in `star_design.md` Part A. It
@@ -81,6 +83,11 @@ have more than one active path. It also computes the figures quoted in `star_des
 advisor paths, and the benchmark meaning on snapshots vs transactions. It writes
 `reports/relationships.csv` and stops with a `RelationshipCheckError` if a check fails or a quoted
 figure changes. It imports `FOREIGN_KEYS` from `01_keys.py`.
+
+`05_questions.py` (a few seconds) answers the three Part F questions two ways: what a single Power BI
+visual with the default Sum shows, and the correct answer. Examples: year-end AUM vs 12 summed monthly
+balances, and net new money vs deposits plus withdrawals. It pins the 21 figures Part F quotes and stops
+with a `QuestionCheckError` if one changes.
 
 **Exporting the model's relationships.** `04_relationships.py` reads
 `powerbi/relationships_export.csv`, which comes from Power BI itself, not from a hand-written list:
@@ -164,6 +171,16 @@ Built by hand in Power BI Desktop (not Apporto), following `powerbi_guide.md`, f
 | `04_relationships.py` | The agreement check compared sets, so a duplicated relationship would pass and inflate the counts | Also checks that no relationship is listed twice |
 | `04_relationships.py` | Redundant per-path groupby; lookup dict rebuilt inside a loop; repeated maps | Groupby removed (it follows from the every-row match); `REACHES` constant; maps computed once |
 | `04_relationships.py` | **Outcome** | All 10 fixed. The model is checked against Power BI's own relationship list, not a hand-typed copy. On the real export, two further adjustments: skip Power BI's hidden Auto date/time relationship (1, for `client_since`), and compare names case-insensitively, because `INFO.VIEW.RELATIONSHIPS` reports `dim_date[date]` as `[Date]` in `ToColumn` while its relationship text says `[date]`. Result: 13 of 13 match (11 active, 2 inactive, all many-to-one, single direction) |
+| `05_questions.py` | **Q1 visual merged two advisors**: `dim_advisor[last_name]` on rows puts Danielle and Robert Johnson in one row. The same applied to the Part D slicer, so Part E (b) had quoted advisor 1's counts (5,008 fees …) as what that "Johnson" slicer showed, when it selects both advisors (9,408 / 9,971 / 23,862) | Q1 visual uses last + first name. Part E (b) corrected: advisor 1's counts are given as computed figures, and the shared last name is explained. `04_relationships.py` now pins the Johnson counts and checks that no two advisors share a full name |
+| `05_questions.py` | Q3 visual put `dim_date[month]` (1–12) on the axis, which merges the same month across 5 years | Axis is year + month; the script counts 60 year-months |
+| `05_questions.py` | "Same error in a by-advisor version" was asserted, not computed | Computed and pinned: for 2024, 25 advisors at 10.6× to 10.7×. (My first wording, 9.9×–11.9×, was a guess; corrected before commit) |
+| `05_questions.py` | The snapshot-to-calendar flag join was an inner join, so dropped rows would also give the pinned 0 | Left join with `validate="many_to_one"`; fails if any snapshot date is missing from `dim_date` |
+| `05_questions.py` | The flag test compared with `'1'` only, so a re-encoded flag would also give 0 | Checks that both flags are 0/1 with both values present |
+| `05_questions.py` | The advisor-path check compared summed frames: NaN cells could fail falsely, and offsetting errors could pass | Row-by-row: fee advisor equals client's advisor on every fee |
+| `05_questions.py` | "Before December 2024" relied on the data happening to end then | `LAST_MONTH` pinned; the script fails if the data ends elsewhere |
+| `05_questions.py` | Deposits and withdrawals were summed twice; the print recomputed figures | Totals taken from the monthly pivot; prints reuse the computed figures |
+| `05_questions.py` | A missing `Withdrawal` type would crash with KeyError before the checks ran | Pivot reindexed to both types |
+| `05_questions.py` | **Outcome** | All 9 fixed, including a correction to Part E (b). 21 Part F figures pinned |
 
 ## Status
 

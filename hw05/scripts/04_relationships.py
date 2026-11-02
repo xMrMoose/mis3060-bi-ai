@@ -69,6 +69,7 @@ BENCHMARK_EXAMPLES = ["1", "8"]
 # Names quoted in star_design.md Part E
 EXPECTED_NAMES = {
     "advisor_1": "Danielle Johnson",
+    "johnsons": ["Danielle Johnson", "Robert Johnson"],
     "benchmark_1": "S&P 500",
     "benchmark_8": "Conservative Blend",
     "client_benchmarks": ["60/40 Blend", "Conservative Blend", "S&P 500"],
@@ -90,6 +91,11 @@ EXPECTED = {
     "advisor_1_snapshots": 5_304,
     "advisor_1_transactions": 12_661,
     "advisor_1_clients": 107,
+    "advisors_sharing_last_name": 2,
+    "advisors_sharing_full_name": 0,
+    "johnson_fees": 9_408,
+    "johnson_snapshots": 9_971,
+    "johnson_transactions": 23_862,
     "client_benchmarks_used": 3,
     "security_benchmarks_used": 6,
     "security_txns": 197_044,
@@ -260,9 +266,22 @@ def main():
     found["advisor_1_snapshots"] = int(snap["advisor_id"].eq(ADVISOR_EXAMPLE).sum())
     found["advisor_1_transactions"] = int(txn["advisor_id"].eq(ADVISOR_EXAMPLE).sum())
     found["advisor_1_clients"] = int(client_adv.eq(ADVISOR_EXAMPLE).sum())
+    # A last_name slicer merges advisors who share a last name (the Part D slicer used last_name)
+    advisors = t["dim_advisor"]
+    shared = advisors[advisors["last_name"].duplicated(keep=False)]
+    found["advisors_sharing_last_name"] = len(shared)
+    found["advisors_sharing_full_name"] = int(advisors.duplicated(["first_name", "last_name"]).sum())
+    names["johnsons"] = sorted(shared["first_name"] + " " + shared["last_name"])
+    johnson_ids = set(shared.loc[shared["last_name"].eq("Johnson"), "advisor_id"])
+    found["johnson_fees"] = int(fees["advisor_id"].isin(johnson_ids).sum())
+    found["johnson_snapshots"] = int(snap["advisor_id"].isin(johnson_ids).sum())
+    found["johnson_transactions"] = int(txn["advisor_id"].isin(johnson_ids).sum())
     print(f"       advisor {ADVISOR_EXAMPLE} ({names['advisor_1']}): fees {found['advisor_1_fees']:,}, "
           f"snapshots {found['advisor_1_snapshots']:,}, transactions {found['advisor_1_transactions']:,}; "
           f"clients {found['advisor_1_clients']} of {found['dim_client_rows']:,} in dim_client")
+    print(f"       advisors sharing a last name: {names['johnsons']}; a 'Johnson' slicer shows fees "
+          f"{found['johnson_fees']:,}, snapshots {found['johnson_snapshots']:,}, "
+          f"transactions {found['johnson_transactions']:,}")
 
     # (c) Fact dates match dim_date[date], never date_id
     fact_dates = pd.concat([fees["fee_date"], snap["snapshot_date"], txn["txn_date"]])

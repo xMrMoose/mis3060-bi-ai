@@ -132,7 +132,9 @@ In Power BI, these rows appear as a `(Blank)` member under `dim_security`. The P
 - **It records the right advisor:** the `advisor_id` on a fee, snapshot or transaction records who handled that event. The `advisor_id` on the client is only the client's *current* advisor. If a client is ever reassigned, the direct path keeps history right: past fees stay with the advisor who earned them. Through `dim_client`, they would move to the new advisor.
 - **Today, both give the same numbers:** the fact's `advisor_id` equals the client's advisor on all 550,316 fact rows, and rows per advisor are identical through either path. So the choice protects future data rather than changing current results.
 
-**Trade-off:** a slicer on `dim_advisor` doesn't filter the `dim_client` table itself. In the Part D check, selecting Danielle Johnson (advisor 1) filtered fees to 5,008, snapshots to 5,304 and transactions to 12,661, but a count of `dim_client` stayed at 2,500, not her 107 clients. "Clients per advisor" therefore has to be counted from a fact (distinct `client_id` in snapshots). The alternative is to switch on #13 in a DAX measure with `USERELATIONSHIP`, which is why I kept it as an inactive relationship instead of deleting it.
+**Trade-off:** a slicer on `dim_advisor` doesn't filter the `dim_client` table itself. In the Part D check, an advisor slicer filtered all three fact counts, but the count of `dim_client` stayed at 2,500. For one advisor, Danielle Johnson (advisor 1), the facts filter to 5,008 fees, 5,304 snapshots and 12,661 transactions, while the client card still shows 2,500 rather than her 107 clients.
+
+The Part D slicer used `last_name`, and two advisors share it: Danielle Johnson (advisor 1) and Robert Johnson (advisor 5). Selecting "Johnson" therefore selects both, and shows 9,408 fees, 9,971 snapshots and 23,862 transactions. An advisor slicer should use `advisor_id` or first and last name together; no two advisors share a full name. "Clients per advisor" therefore has to be counted from a fact (distinct `client_id` in snapshots). The alternative is to switch on #13 in a DAX measure with `USERELATIONSHIP`, which is why I kept it as an inactive relationship instead of deleting it.
 
 ### (c) Joining on `dim_date[date]` vs `dim_date[date_id]`
 
@@ -160,3 +162,52 @@ In Power BI, these rows appear as a `(Blank)` member under `dim_security`. The P
   With #12 inactive, a benchmark slicer filters portfolio snapshots only, which is its single clear meaning. A security's own `asset_class` and `sector` in `dim_security` still describe the trades.
 
 ## Part F — Reflection
+
+There is one question per fact table. Each was answered twice in `scripts/05_questions.py`: once as a single Power BI visual with the default Sum would show it, and once correctly. All figures quoted are pinned in the script.
+
+| # | Manager's question | Fact table | One visual, no DAX? | Schema change that would fix it |
+|---|---|---|---|---|
+| 1 | How much fee revenue did each advisor bring in each year? | fact_fees | **Yes** | None needed |
+| 2 | What was the firm's (and each advisor's) AUM at the end of each year? | fact_portfolio_snapshot | **No** (Sum adds 12 monthly balances) | Date snapshots at the month end, so the calendar's year-end flag selects them |
+| 3 | How much net new money (deposits − withdrawals) came in each month? | fact_transactions | **No** (Sum adds deposits *and* withdrawals) | A transaction-type dimension with a sign, plus a signed amount |
+
+### Q1. Fee revenue by advisor and year: answerable in one visual
+
+**Visual:** a matrix with `dim_advisor[last_name]` and `dim_advisor[first_name]` on rows, `dim_date[year]` on columns and **Sum of `fact_fees[amount]`** as values. Add `fee_type` as a column level for the split by fee type. Both name columns are needed, because Danielle and Robert Johnson share a last name (Part E (b)).
+
+This works without DAX for two reasons. Fee `amount` is the one fully additive measure (Part C), so summing it across advisors and years is correct. Advisor and date are conformed dimensions with active direct relationships, so both filter `fact_fees` with no workaround. In 2024 the firm earned **$48.71M** in fees, and the top advisor was **Jeffery Wagner** with **$3.18M**. The result is the same through the inactive `dim_client → dim_advisor` path, because the fact advisor always equals the client's advisor (Part E (b)).
+
+**Limits of the same model:**
+- **Effective fee rate:** the natural follow-up, "what fee rate is each advisor earning?", can't be answered in one visual. `bps_charged` is non-additive, so a default Sum or Average gives a wrong number. It needs a DAX measure, `SUM(amount) × 12 × 10,000 / SUM(aum_basis)`.
+- **Two fee sources:** this answer uses `fact_fees`. It shouldn't be compared with or added to the Advisory Fee transactions, which are a separate source (Part C).
+
+### Q2. AUM at each year end: not answerable in one visual
+
+**What a single visual shows:** `dim_date[year]` with Sum of `aum` gives **$135.46B for 2024**. The real year-end AUM, the December snapshot, is **$12.73B**. Every year comes out **10.6× to 12.4× too high**, because the visual adds up to 12 monthly balances of the same money (`aum` is semi-additive, Part C). It isn't exactly 12×, because clients join and leave during the year. A by-advisor version has the same error: for 2024, each of the 25 advisors' totals is 10.6× to 10.7× their December AUM.
+
+**The workarounds are fragile:**
+- **December filter:** a visual-level filter `dim_date[month] = 12` gives the right year-end figures. But it has to be remembered on every AUM visual, and any visual without it is silently wrong.
+- **Calendar flags:** the calendar's own flags, which should be the natural tool, don't work. **0 snapshots fall on a day `dim_date` marks `is_month_end` or `is_year_end`**, because every snapshot is dated the 1st of its month. Filtering to year end therefore returns nothing.
+- **Latest snapshot per client:** a "latest snapshot per client" rule would also be wrong. It would keep the **175 clients** whose last snapshot is before December 2024 in today's AUM, after they had left.
+
+**Schema change:** store each snapshot on its **period-end date** (the last day of the month it describes), or add a `period_end_date` column joined to `dim_date`. `dim_date[is_year_end]`, `is_quarter_end` and `is_month_end` then select exactly one balance per client per period. "Year-end AUM" becomes a slicer choice instead of a filter someone has to remember. This would also resolve a real ambiguity: today, nothing says whether the `2024-12-01` snapshot is the opening or the closing balance for December.
+
+**What schema can't fix:** a balance still can't be summed across time. "AUM as of the end of whatever period is selected" needs a semi-additive DAX measure (last date in the filter context), which is HW6 material.
+
+### Q3. Net new money by month: not answerable in one visual
+
+**What a single visual shows:** a matrix with `dim_date[year]` and `dim_date[month]` on rows (both, because `month` alone is 1–12 and would merge the same month across five years) and Sum of `fact_transactions[amount]`, filtered to Deposits and Withdrawals. Its total is **$3.31B**. Deposits ($1.82B) and withdrawals ($1.49B) are *added*, because every amount is stored as a positive number and the direction lives only in `txn_type` (Part C). The real net new money is **$327.44M**, 10× smaller.
+
+**The workaround is weak:** putting `txn_type` on columns shows deposits and withdrawals side by side. The reader then has to subtract them by eye for each month, and the visual's total column still adds them. That's two numbers and mental arithmetic, not an answer. (The correct figure is positive in all 60 months: every month was a net inflow.)
+
+**Schema change:**
+1. Make `txn_type` a small dimension (`dim_txn_type`) instead of a text column on the fact, with:
+   - a `direction` for cash: +1 for Deposit, Sell and Dividend; −1 for Withdrawal, Buy and Advisory Fee;
+   - a `flow_category` (External flow, Trade, Income, Fee).
+2. Store a `signed_amount` on the fact: `amount × direction`.
+
+Net new money is then one visual: Sum of `signed_amount`, sliced by `flow_category = External flow`. The same column answers net trading (Buy vs Sell) and net cash movement with no DAX. HW5 allows no new tables or columns, so this is a recommendation for the next version of the warehouse, not a change made here.
+
+### What this says about the model
+
+The model answers questions about the **additive** measure (fees) directly, and the conformed date, client and advisor dimensions make those answers easy to slice. It **cannot** safely answer the two most common wealth-management questions, "how much are we managing?" and "how much new money came in?", with plain visuals. One is a balance stored at the start of the month; the other is an unsigned amount whose sign lives in a text column. Both failures look plausible on screen: $135B of AUM and $3.3B of inflows are believable numbers. That is why Part C's classification matters. HW6's DAX measures can work around both problems. The schema changes above would remove them for anyone building a report.
