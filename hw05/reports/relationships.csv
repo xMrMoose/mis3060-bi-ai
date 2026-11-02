@@ -1,0 +1,14 @@
+from,to,cardinality,cross_filter,active,note
+fact_fees[fee_date],dim_date[date],many-to-one,single,True,
+fact_portfolio_snapshot[snapshot_date],dim_date[date],many-to-one,single,True,
+fact_transactions[txn_date],dim_date[date],many-to-one,single,True,
+fact_fees[client_id],dim_client[client_id],many-to-one,single,True,
+fact_portfolio_snapshot[client_id],dim_client[client_id],many-to-one,single,True,
+fact_transactions[client_id],dim_client[client_id],many-to-one,single,True,
+fact_fees[advisor_id],dim_advisor[advisor_id],many-to-one,single,True,
+fact_portfolio_snapshot[advisor_id],dim_advisor[advisor_id],many-to-one,single,True,
+fact_transactions[advisor_id],dim_advisor[advisor_id],many-to-one,single,True,
+fact_transactions[security_id],dim_security[security_id],many-to-one,single,True,
+fact_portfolio_snapshot[benchmark_id],dim_benchmark[benchmark_id],many-to-one,single,True,
+dim_security[benchmark_id],dim_benchmark[benchmark_id],many-to-one,single,False,allowed active (no second path); inactive by design choice
+dim_client[advisor_id],dim_advisor[advisor_id],many-to-one,single,False,would create a second path: dim_advisor -> fact_fees; dim_advisor -> fact_portfolio_snapshot; dim_advisor -> fact_transactions

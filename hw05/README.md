@@ -17,14 +17,16 @@ hw05/
 │   ├── common.py                   ← shared paths, table loading, blank/type tests, check collector
 │   ├── 01_keys.py                  ← Part A: PK uniqueness, FK integrity, date join column
 │   ├── 02_grain.py                 ← Part B: grain uniqueness for each fact table
-│   └── 03_measures.py              ← Part C: classify every numeric column, with evidence
+│   ├── 03_measures.py              ← Part C: classify every numeric column, with evidence
+│   └── 04_relationships.py         ← Part E: model paths, conformed dimensions, (a)–(d) figures
 ├── data/
 │   └── clean/                      ← the 8 Wildcat Capital Clean tables (read-only)
 ├── reports/
 │   ├── keys_pk.csv                 ← Part A: one row per table
 │   ├── keys_fk.csv                 ← Part A: one row per relationship
 │   ├── grain.csv                   ← Part B: one row per candidate grain tested
-│   └── measures.csv                ← Part C: one row per numeric column (47)
+│   ├── measures.csv                ← Part C: one row per numeric column (47)
+│   └── relationships.csv           ← Part E: the 13 relationships as built, active flag, notes
 └── powerbi/
     ├── hw05.pbix                   ← Part D: saved model (21.8 MB, under GitHub's 100 MB limit)
     └── model_view.png              ← Part D: full Model view screenshot
@@ -53,6 +55,7 @@ From the repository root, with the course virtual environment active:
 python hw05/scripts/01_keys.py
 python hw05/scripts/02_grain.py
 python hw05/scripts/03_measures.py
+python hw05/scripts/04_relationships.py
 ```
 
 `01_keys.py` (a few seconds) proves every primary key and foreign key in `star_design.md` Part A. It
@@ -71,7 +74,25 @@ class depends on, for example fee = AUM × bps / 10,000 / 12, and that summing A
 inflates it 44.5×. It writes `reports/measures.csv` and stops with a `MeasureCheckError` if any check
 fails or a quoted figure changes.
 
-All three scripts share the helpers in `common.py`, so Parts A and B treat blanks and types the same way.
+`04_relationships.py` (a few seconds) holds the 13 designed relationships. It confirms they are the
+Part A foreign keys and that they match the relationships Power BI reports for `hw05.pbix` (see below),
+and traces every filter path to prove that no two tables
+have more than one active path. It also computes the figures quoted in `star_design.md` Part E: the
+advisor paths, and the benchmark meaning on snapshots vs transactions. It writes
+`reports/relationships.csv` and stops with a `RelationshipCheckError` if a check fails or a quoted
+figure changes. It imports `FOREIGN_KEYS` from `01_keys.py`.
+
+**Exporting the model's relationships.** `04_relationships.py` reads
+`powerbi/relationships_export.csv`, which comes from Power BI itself, not from a hand-written list:
+
+1. In Power BI Desktop, open the **DAX query view** (fourth icon on the left rail).
+2. Run `EVALUATE INFO.VIEW.RELATIONSHIPS()`.
+3. Copy the result grid with its headers, paste it into a text file, and save it as
+   `powerbi/relationships_export.csv`. Tab- or comma-separated both work.
+
+Redo the export whenever a relationship changes in the model.
+
+All four scripts share the helpers in `common.py`, so Parts A and B treat blanks and types the same way.
 
 ## Power BI Model (Part D)
 
@@ -81,10 +102,14 @@ Built by hand in Power BI Desktop (not Apporto), following `powerbi_guide.md`, f
 - **Types:** every column set in Power Query: `*_id` keys Whole Number (`security_id` blank on cash
   rows), dates Date, amounts, AUM, rates and returns Decimal Number, `zip_code` and `account_type`
   Text, `is_active` and `is_etf` True/False, 0/1 flags Whole Number.
-- **Relationships:** 13 relationships, all many-to-one with single-direction filtering. 12 are active.
-  `dim_client → dim_advisor` is inactive, because the facts reach `dim_advisor` directly
-  (`star_design.md` Part E).
+- **Relationships:** 13 relationships, all many-to-one with single-direction filtering. 11 are active
+  and 2 are inactive (`star_design.md` Part E):
+  - `dim_client → dim_advisor` would be a second path to `dim_advisor`.
+  - `dim_security → dim_benchmark` would mix the client's benchmark with the security's.
 - **Dates:** fact dates join `dim_date[date]`, and `dim_date` is marked as the date table on `date`.
+  Auto date/time is still on. Its only hidden date table is for `dim_client[client_since]`, which
+  isn't joined to `dim_date`. `04_relationships.py` lists it separately from the designed
+  relationships.
 - **Summarize by:** set to None on the 41 numeric columns that Part C says never to sum. Only the 5
   additive and semi-additive measures default to Sum.
 - **Checks page:** row-count card (Count of each primary key), with all 8 tables matching the brief.
@@ -130,6 +155,15 @@ Built by hand in Power BI Desktop (not Apporto), following `powerbi_guide.md`, f
 | `03_measures.py` | Coverage ignored a numeric column with one stray text value | A column with ≥95% numeric values counts as numeric and must be classified and fully numeric. Fault test: a new column with one `n/a` fails |
 | `03_measures.py` | Tolerances were scattered as magic numbers, and the same columns were parsed repeatedly | One `TOLERANCES` dict; each fact table's numeric columns parsed once |
 | `03_measures.py` | **Outcome** | 9 fixed, 1 classification changed by my decision. 47 columns classified; fact measures 1 additive / 4 semi-additive / 6 non-additive; 3 fault-injection tests confirm the new checks |
+| `04_relationships.py` | The relationship list said "exactly as built", but `hw05.pbix` still had `dim_security → dim_benchmark` active, and nothing tied the hand-typed active flags to the real model | The script now reads the relationships Power BI reports (`INFO.VIEW.RELATIONSHIPS()` export) and fails on any difference in active flag, cardinality or direction. Tested on a simulated export: the old model (#12 active) fails with that relationship named. The model was then updated (#12 inactive) and re-exported |
+| `04_relationships.py` | "Different groups of clients" (S&P 500 example) was asserted, not measured | Measured: 2,376 clients trade S&P-benchmarked securities, only 666 have an S&P 500 portfolio, and 71.5% of those trades are by other clients. Part E wording now gives these figures |
+| `04_relationships.py` | Several quoted figures weren't pinned (701 clients, 0 Conservative Blend securities, 2,500 clients, the `date_id` range 1 to 1,827) | Added to `EXPECTED` (30 figures pinned) |
+| `04_relationships.py` | Question (c) was a fixed print statement, not a computation | Computes the match to `date` and to `date_id` over all fact dates, plus the `date_id` range |
+| `04_relationships.py` | Names quoted in Part E (Danielle Johnson, S&P 500, Conservative Blend, the 3 portfolio benchmarks) weren't checked | `EXPECTED_NAMES`, looked up from `dim_advisor` and `dim_benchmark` |
+| `04_relationships.py` | Client benchmark took each client's first snapshot without checking that it never changes | Check: every client has exactly one portfolio benchmark |
+| `04_relationships.py` | The agreement check compared sets, so a duplicated relationship would pass and inflate the counts | Also checks that no relationship is listed twice |
+| `04_relationships.py` | Redundant per-path groupby; lookup dict rebuilt inside a loop; repeated maps | Groupby removed (it follows from the every-row match); `REACHES` constant; maps computed once |
+| `04_relationships.py` | **Outcome** | All 10 fixed. The model is checked against Power BI's own relationship list, not a hand-typed copy. On the real export, two further adjustments: skip Power BI's hidden Auto date/time relationship (1, for `client_since`), and compare names case-insensitively, because `INFO.VIEW.RELATIONSHIPS` reports `dim_date[date]` as `[Date]` in `ToColumn` while its relationship text says `[date]`. Result: 13 of 13 match (11 active, 2 inactive, all many-to-one, single direction) |
 
 ## Status
 

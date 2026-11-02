@@ -100,12 +100,63 @@ A dimension row is repeated across every fact row that joins to it. Summing a di
 
 ## Part E — Relationships and design questions
 
+### The model built in Part D
+
+All 13 foreign keys from Part A became relationships, so none was omitted. Every relationship is **many-to-one with a single cross-filter direction**: the dimension filters the fact, never the reverse. 11 are active and 2 are inactive.
+
+| # | From (many) | To (one) | Active | Why |
+|---|---|---|---|---|
+| 1–3 | `fact_fees[fee_date]`, `fact_portfolio_snapshot[snapshot_date]`, `fact_transactions[txn_date]` | `dim_date[date]` | Yes | Conformed date dimension; see (c) |
+| 4–6 | `client_id` on all three facts | `dim_client[client_id]` | Yes | Conformed client dimension |
+| 7–9 | `advisor_id` on all three facts | `dim_advisor[advisor_id]` | Yes | Conformed advisor dimension; see (b) |
+| 10 | `fact_transactions[security_id]` | `dim_security[security_id]` | Yes | Blank on cash rows; see (a) |
+| 11 | `fact_portfolio_snapshot[benchmark_id]` | `dim_benchmark[benchmark_id]` | Yes | The client's portfolio benchmark |
+| 12 | `dim_security[benchmark_id]` | `dim_benchmark[benchmark_id]` | **No** | By choice; see (d) |
+| 13 | `dim_client[advisor_id]` | `dim_advisor[advisor_id]` | **No** | Would be a second path to `dim_advisor`; see (b) |
+
+**Conformed dimensions.** `dim_date`, `dim_client` and `dim_advisor` each connect directly to all three fact tables, so one slicer on any of them filters fees, snapshots and transactions at the same time. That makes them the shared axes for comparing the three facts. `dim_security` filters only transactions, and `dim_benchmark` (with #12 inactive) filters only snapshots.
+
+**How the model was checked.** `scripts/04_relationships.py` holds the 13 designed relationships and confirms they are the Part A foreign keys. It also compares them with the relationships Power BI reports for `hw05.pbix`, exported with `INFO.VIEW.RELATIONSHIPS()`: active flag, cardinality and cross-filter direction must all match. It traces every filter path (one side to many side) and proves that no two tables are joined by more than one active path, which is Power BI's rule. It also computes every figure below; these are pinned in the script. Detail is in `reports/relationships.csv`. The Part D checks page confirmed the model in Power BI: every row count matches the brief, the `(Blank)` ticker row appears, and an advisor slicer filters all three facts.
+
 ### (a) Transactions with no `security_id`
+
+101,528 transactions (34.0%) have no `security_id`. They are exactly the **Deposit, Withdrawal and Advisory Fee** rows, and every Buy, Sell and Dividend has a security (Part A). These rows move cash into or out of the account, or charge a fee against it, and no security is bought or sold. A blank key is the correct way to record "no security", so **it is not a defect**. Making up a placeholder security would be worse, because it would show up as a fake ticker in every security report.
+
+In Power BI, these rows appear as a `(Blank)` member under `dim_security`. The Part D check showed one `(Blank)` row, holding the cash amount. Any `(Blank)` on another dimension would mean an orphan key, and Part A showed there are none. The key stays Whole Number so the relationship works for the other 197,044 rows. The only caution is for reports: a security-level visual should filter to trade types, or label `(Blank)` as "Cash", so the cash rows aren't read as an unnamed security.
 
 ### (b) `advisor_id` in `dim_client` and the three fact tables
 
+`dim_advisor` can be reached two ways: directly from each fact, or through `dim_client` (`fact → dim_client → dim_advisor`). Power BI allows only one active path between two tables. **I kept the three direct fact → `dim_advisor` relationships active (#7–9) and made `dim_client → dim_advisor` inactive (#13).**
+
+- **It keeps the star shape:** every fact is one step from every dimension it uses, so filters are simple to follow and quick to run.
+- **It records the right advisor:** the `advisor_id` on a fee, snapshot or transaction records who handled that event. The `advisor_id` on the client is only the client's *current* advisor. If a client is ever reassigned, the direct path keeps history right: past fees stay with the advisor who earned them. Through `dim_client`, they would move to the new advisor.
+- **Today, both give the same numbers:** the fact's `advisor_id` equals the client's advisor on all 550,316 fact rows, and rows per advisor are identical through either path. So the choice protects future data rather than changing current results.
+
+**Trade-off:** a slicer on `dim_advisor` doesn't filter the `dim_client` table itself. In the Part D check, selecting Danielle Johnson (advisor 1) filtered fees to 5,008, snapshots to 5,304 and transactions to 12,661, but a count of `dim_client` stayed at 2,500, not her 107 clients. "Clients per advisor" therefore has to be counted from a fact (distinct `client_id` in snapshots). The alternative is to switch on #13 in a DAX measure with `USERELATIONSHIP`, which is why I kept it as an inactive relationship instead of deleting it.
+
 ### (c) Joining on `dim_date[date]` vs `dim_date[date_id]`
 
+**I joined on `dim_date[date]`.** The facts store calendar dates (`2024-12-01`) and have no `date_id` column. All three fact date columns match `dim_date[date]` 100% and `dim_date[date_id]` 0% (Part A). `date_id` is a plain row number (1 to 1,827), so joining a date to it would match nothing.
+
+`date` can serve as the one side because it is unique and never blank. It is also the column `dim_date` is marked as a date table on, which is what time-intelligence DAX needs. `date_id` remains the table's primary key, but no relationship uses it.
+
 ### (d) Star or snowflake
+
+**Yes, two relationships connect one dimension to another:** `dim_client → dim_advisor` and `dim_security → dim_benchmark`. With both active, the model would be a small snowflake. **I kept both, but inactive**, so all filtering follows a star (dimension → fact only), while the links stay available to DAX through `USERELATIONSHIP`.
+
+- **`dim_client → dim_advisor` (#13):** this one *had* to be inactive, because it would add a second path from `dim_advisor` to every fact (see (b)).
+- **`dim_security → dim_benchmark` (#12):** Power BI would have let this one stay active, because it creates no second path. I made it inactive because **"benchmark" means two unrelated things** in this data:
+  - on `fact_portfolio_snapshot`, it is the **client's** portfolio benchmark;
+  - through `dim_security`, it is each **security's** benchmark.
+
+  The two hardly overlap:
+  - **Different sets:** client portfolios use 3 benchmarks (S&P 500, 60/40 Blend, Conservative Blend), while securities use 6.
+  - **Rare matches:** only 9.4% of the 197,044 security trades are in a security whose benchmark matches the client's portfolio benchmark.
+
+  With #12 active, one benchmark slicer would apply both meanings at once.
+  - **Conservative Blend:** selecting it would show 50,117 snapshots for its 967 clients but **0 transactions**, because no security is benchmarked to it, even though those clients made 115,882 transactions.
+  - **S&P 500:** it would show 36,528 snapshots for 701 clients next to 39,440 trades in 101 S&P-benchmarked securities, presented as if they were one group. They are largely different clients: 2,376 clients trade those securities, and only 666 of them have an S&P 500 portfolio. 71.5% of the trades come from clients with a different portfolio benchmark.
+
+  With #12 inactive, a benchmark slicer filters portfolio snapshots only, which is its single clear meaning. A security's own `asset_class` and `sector` in `dim_security` still describe the trades.
 
 ## Part F — Reflection
