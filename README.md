@@ -28,4 +28,5 @@ Claude Desktop · Claude Code · Python · Power BI · Streamlit · GitHub
 | HW3 | Data Ingestion: SEC 8-K Filings | ✓ Complete |
 | HW4 | Data Cleaning: Wildcat Capital | ✓ Complete |
 | HW5 | Star Schema and Power BI: Wildcat Capital | ✓ Complete |
+| HW6 | DAX Measure Library: AUM & Performance | In progress |
 | ... | ... | ... |
