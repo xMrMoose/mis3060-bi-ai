@@ -51,6 +51,21 @@ The instructor's `Wildcat Capital Clean/` release, the same files as `hw05/data/
 `powerbi/hw06.pbix` starts from the posted `Wildcat_Star_Model.pbix`, so every reconciliation uses the
 same model. All measures go in a `_Measures` table.
 
+- **Environment:** built in **Power BI Desktop on my own computer** (Microsoft Store version
+  2.159.1231.0), **not on Apporto**. The brief's Apporto step (save to the persistent drive and keep a
+  local copy) therefore doesn't apply: the file in this repo is the working copy. This version has
+  **DAX query view**, which was used for every export.
+- **File size:** `hw06.pbix` is 21.9 MB, under GitHub's 100 MB limit, so it is in the repo.
+- **Model check (guide §0):**
+  - **Date table:** `dim_date` is marked as the date table (its DataCategory is `Time`).
+  - **Relationships:** `INFO.VIEW.RELATIONSHIPS()` lists 13, all many-to-one, single direction and
+    active (`claude/model_metadata.md`):
+    - the brief's 11 fact-to-dimension relationships;
+    - `dim_security → dim_benchmark`, which the posted model has active;
+    - Power BI's hidden Auto date/time relationship for `dim_client[client_since]`.
+
+    Neither extra one affects any HW6 measure.
+
 - **Measures:** 17 in `_Measures`:
   - `Total Fees` and `Net Flows`, from the ICEs;
   - `AUM (naive SUM)`, kept only to show the mistake;
@@ -62,7 +77,7 @@ same model. All measures go in a `_Measures` table.
   - currency with 2 decimals;
   - percentages with 2 decimals;
   - `Fee Yield (bps)` as a decimal with 2 decimals;
-  - `Ending Clients` as a number with a thousands separator;
+  - `Ending Clients` as a whole number (`#,0`);
   - `Alpha Signal` and `Ending Clients Display` as text.
 - **Measures page:** cards for Ending AUM, Ending Clients, Avg AUM per Client and Top 10 Client Share; a
   table by `dim_date[year]`; and a table by `dim_client[client_tier]` with a visual-level filter
@@ -77,9 +92,10 @@ same model. All measures go in a `_Measures` table.
 
   The saved report showed the card's display units already set to None, the same setting that works on
   the Ending AUM / Avg AUM per Client card. **Workaround:** I created
-  `Ending Clients Display = FORMAT ( [Ending Clients], "#,##0" )` and put it on the card instead. As text,
-  the card can't rescale it, so it shows "2,325". It is display-only: every calculation still uses
-  `Ending Clients`, and the text version is reconciled at the grand total like every other measure.
+  `Ending Clients Display = FORMAT ( [Ending Clients], "#,##0" )` and put it on the card instead. The card
+  is labeled with that measure name. As text, the card can't rescale it, so it shows "2,325". It is
+  display-only: every calculation still uses `Ending Clients`, and the text version is reconciled at the
+  grand total like every other measure.
 - **Placeholder column:** `_Measures` still has the one-row `Column` that **Enter data** creates. The
   guide says to delete it, but Power BI wouldn't: right-click offered no Delete from model option, and
   the Delete key did nothing. No measure uses it, and it doesn't affect any result.

@@ -21,7 +21,7 @@ Figures quoted below come from the pandas side and are reconciled to Power BI in
 | — | `Net Flows` | SUM | Currency, 2 dp |
 | 0 | `AUM (naive SUM)` | SUM applied to a balance (**wrong, kept only as a warning**) | Currency, 2 dp |
 | 1 | `Ending AUM` | Last balance | Currency, 2 dp |
-| 2 | `Ending Clients` | Last balance | Number with thousands separator (`#,0.00`) |
+| 2 | `Ending Clients` | Last balance | Whole number (`#,0`) |
 | 2 | `Ending Clients Display` | Text label on a last-balance measure (card only) | Text (`#,##0` via FORMAT) |
 | 3 | `Avg AUM per Client` | Recompute (last balance ÷ last balance) | Currency, 2 dp |
 | 4 | `Ending AUM LY` | Last balance, shifted one year | Currency, 2 dp |
@@ -62,9 +62,10 @@ withdrawals are both stored as positive amounts, so withdrawals are subtracted.
 AUM (naive SUM) = SUM ( fact_portfolio_snapshot[aum] )
 ```
 **Pattern:** SUM applied to a semi-additive balance, which is the mistake this library exists to avoid.
-**For a manager:** it adds the same client's balance once per month. With no filter it shows
-$566,681,084,542.48, 44.5 times the $12,729,572,078.86 Wildcat actually manages. It is kept only to
-show that Power BI and pandas make the same mistake (Part B), and it is not on the Measures page.
+It adds the same client's balance once per month. It is kept only to show that Power BI and pandas make
+the same mistake (Part B), and it is not on the Measures page.
+**For a manager:** **do not use it.** With no filter it reports $566,681,084,542.48, 44.5 times the
+$12,729,572,078.86 Wildcat actually manages.
 
 ### 1. Ending AUM
 
@@ -89,9 +90,10 @@ CALCULATE (
     LASTNONBLANK ( dim_date[date], CALCULATE ( COUNTROWS ( fact_portfolio_snapshot ) ) )
 )
 ```
-**Pattern:** last balance. It is a head count on the same date `Ending AUM` uses, not a count across months.
+**Pattern:** last balance. It is a head count on the same date `Ending AUM` uses, not a count across
+months. That is why it is 2,325, not the 2,500 in `dim_client`: clients who left earlier have no final
+snapshot.
 **For a manager:** how many clients hold an account at the end of the period: 2,325 in December 2024.
-That is fewer than the 2,500 in `dim_client`, because clients who left earlier have no final snapshot.
 
 ```DAX
 Ending Clients Display = FORMAT ( [Ending Clients], "#,##0" )
@@ -115,8 +117,8 @@ Avg AUM per Client = DIVIDE ( [Ending AUM], [Ending Clients] )
 ```
 **Pattern:** recompute. A ratio of two last-balance measures, recomputed in every filter context instead
 of averaging client rows.
-**For a manager:** the typical relationship size at the end of the period, about $5.48M per client in
-December 2024. It is the figure to compare across tiers or advisors.
+**For a manager:** the typical relationship size at the end of the period (about $5.48M per client in
+December 2024), the figure to compare across tiers or advisors.
 
 ### 4. Ending AUM LY and AUM YoY %
 
@@ -151,10 +153,10 @@ DIVIDE (
 )
 ```
 **Pattern:** recompute and weight. Total balance is divided by the number of distinct snapshot months in
-the filter, so every month counts equally whatever the number of clients.
-**For a manager:** the balance Wildcat carried on average through the period ($11.29B in 2024). Because
-AUM grew during the year, this is below the year-end figure. It is the right base for anything earned
-over the whole period, such as fees.
+the filter, so every month counts equally whatever the number of clients. Because AUM grew during
+2024, this is below the year-end figure.
+**For a manager:** the balance Wildcat carried on average through the period ($11.29B in 2024), the
+right base for anything earned over the whole period, such as fees.
 
 ### 7. Fee Yield (bps)
 
@@ -173,10 +175,10 @@ by the sum of monthly balances, so it is weighted by AUM. Both tables are filter
 ```DAX
 Organic Growth Rate = DIVIDE ( [Net Flows], [Ending AUM LY] )
 ```
-**Pattern:** recompute. Additive flows for the period, divided by the last balance a year earlier.
-**For a manager:** growth from client decisions alone, without market moves: net new money equal to 0.73%
-of the starting book in 2024. Set against 19.58% total growth, almost all of 2024's growth came from
-markets.
+**Pattern:** recompute. Additive flows for the period, divided by the last balance a year earlier. Set
+against 19.58% total growth in 2024, it shows almost all of that year's growth came from markets.
+**For a manager:** growth from client decisions alone, without market moves: net new money equal to
+0.73% of the starting book in 2024.
 
 ### 9. AUM-Weighted Alpha
 
@@ -247,8 +249,8 @@ clients in the current filter (for example one tier in 2024), so the share stays
 `ALL ( dim_client )` would rank the whole firm. Every client is ranked by its balance on the same last
 snapshot. Ranking by `[Ending AUM]` would use each client's own last snapshot, and a client who left
 earlier could then rank in the top 10 while adding nothing to the year-end balance.
-**For a manager:** concentration risk: the 10 largest clients hold 6.16% of firm AUM. Within UHNW in 2024
-it is 8.13%, so losing a few large relationships would hit that tier hardest.
+**For a manager:** concentration risk: the 10 largest clients hold 6.16% of firm AUM, and 8.13% of UHNW
+in 2024, so losing a few large relationships would hit that tier hardest.
 
 ---
 
