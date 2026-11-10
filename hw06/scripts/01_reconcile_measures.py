@@ -23,13 +23,13 @@ POWERBI_VALUES = REPORTS_DIR / "powerbi_values.csv"
 OUTPUT = REPORTS_DIR / "measure_reconciliation.csv"
 
 # Measure -> comparison class. Tolerances follow the brief: 0.01 for currency,
-# 0.0001 for ratios; a client count and a text label must match exactly.
+# 0.0001 for ratios; a client count and the text measures must match exactly.
 CURRENCY = ["Total Fees", "Net Flows", "AUM (naive SUM)", "Ending AUM", "Ending AUM LY",
             "Ending AUM PM", "Avg AUM per Client", "Avg Monthly AUM"]
 RATIO = ["AUM YoY %", "AUM MoM %", "Fee Yield (bps)", "Organic Growth Rate",
          "AUM-Weighted Alpha", "Top 10 Client Share"]
 COUNT = ["Ending Clients"]
-TEXT = ["Alpha Signal"]
+TEXT = ["Alpha Signal", "Ending Clients Display"]
 TOLERANCE = {**{m: 0.01 for m in CURRENCY}, **{m: 0.0001 for m in RATIO}, **{m: 0 for m in COUNT}}
 ALL_MEASURES = CURRENCY + RATIO + COUNT + TEXT
 
@@ -193,7 +193,9 @@ class Measures:
         self.by_name = {
             "Total Fees": self.total_fees, "Net Flows": self.net_flows,
             "AUM (naive SUM)": self.naive_sum, "Ending AUM": self.ending_aum,
-            "Ending Clients": self.ending_clients, "Avg AUM per Client": self.avg_aum_per_client,
+            "Ending Clients": self.ending_clients,
+            "Ending Clients Display": self.ending_clients_display,
+            "Avg AUM per Client": self.avg_aum_per_client,
             "Ending AUM LY": self.ending_aum_ly, "AUM YoY %": self.aum_yoy,
             "Ending AUM PM": self.ending_aum_pm, "AUM MoM %": self.aum_mom,
             "Avg Monthly AUM": self.avg_monthly_aum, "Fee Yield (bps)": self.fee_yield_bps,
@@ -229,6 +231,11 @@ class Measures:
     def ending_clients(self, s):
         last = self.last_snapshot_rows(s)
         return last.client_id.nunique() if len(last) else np.nan
+
+    def ending_clients_display(self, s):
+        """FORMAT ( [Ending Clients], "#,##0" ): text with a thousands separator; BLANK -> ""."""
+        clients = self.ending_clients(s)
+        return "" if pd.isna(clients) else f"{int(clients):,}"
 
     def avg_aum_per_client(self, s):
         return divide(self.ending_aum(s), self.ending_clients(s))
@@ -339,7 +346,7 @@ def main():
     for measure, label, powerbi_text in pbi.itertuples(index=False):
         s = parse_slice(label, calendar_start, calendar_end, tiers)
         rows.append((measure, label, *compare(measure, powerbi_text, measures.compute(measure, s))))
-        if measure in TEXT:
+        if measure == "Alpha Signal":
             alpha = measures.aum_weighted_alpha(s)
             if not pd.isna(alpha):
                 alpha_margins.append(abs(abs(alpha) - SIGNAL_THRESHOLD))

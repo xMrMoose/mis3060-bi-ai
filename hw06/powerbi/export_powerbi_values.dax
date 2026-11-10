@@ -10,6 +10,7 @@ DEFINE
                 ( "AUM (naive SUM)", [AUM (naive SUM)] & "" ),
                 ( "Ending AUM", [Ending AUM] & "" ),
                 ( "Ending Clients", [Ending Clients] & "" ),
+                ( "Ending Clients Display", [Ending Clients Display] & "" ),
                 ( "Avg AUM per Client", [Avg AUM per Client] & "" ),
                 ( "Ending AUM LY", [Ending AUM LY] & "" ),
                 ( "AUM YoY %", [AUM YoY %] & "" ),
